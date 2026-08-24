@@ -464,9 +464,16 @@ ufw --force enable >/dev/null 2>&1 || true
 log "Creando el usuario administrador"
 ADMIN_EMAIL="${EMAIL:-admin@$DOMAIN}"
 ADMIN_PASSWORD="$(openssl rand -base64 12 | tr -d '/+=' | head -c 14)"
-sudo -u pushflow env "PATH=$PATH" node scripts/create-admin.js \
-  --email "$ADMIN_EMAIL" --password "$ADMIN_PASSWORD" --org "PushFlow" || \
-  warn "El usuario administrador ya existía."
+ADMIN_CREATED=false
+if sudo -u pushflow env "PATH=$PATH" node scripts/create-admin.js \
+     --email "$ADMIN_EMAIL" --password "$ADMIN_PASSWORD" --org "PushFlow"; then
+  ADMIN_CREATED=true
+else
+  # Importante: si no se creó, la contraseña generada NO es válida y no debe
+  # aparecer en el resumen final.
+  ADMIN_PASSWORD=""
+  warn "El usuario $ADMIN_EMAIL ya existía: se conserva su contraseña anterior."
+fi
 
 cat <<FINAL
 
@@ -475,9 +482,11 @@ cat <<FINAL
 
   Panel:      https://$DOMAIN
   Usuario:    $ADMIN_EMAIL
-  Contraseña: $ADMIN_PASSWORD
-
-  Guarda esta contraseña: no se volverá a mostrar.
+$(if [[ "$ADMIN_CREATED" == true ]]; then
+    printf '  Contraseña: %s\n\n  Guarda esta contraseña: no se volverá a mostrar.' "$ADMIN_PASSWORD"
+  else
+    printf '  Contraseña: la que ya tenías (este usuario no se ha vuelto a crear).\n\n  ¿La has perdido? Crea otro usuario:\n    cd %s && sudo -u pushflow node scripts/create-admin.js --email TU@CORREO.COM' "$INSTALL_DIR"
+  fi)
 
   Servicios:  systemctl status pushflow pushflow-worker
   Registros:  journalctl -u pushflow -f
