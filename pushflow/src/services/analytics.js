@@ -70,7 +70,8 @@ export async function trackDisplayed({ appId, notificationId, subscriptionId, de
     const { rowCount } = await query(
       `UPDATE deliveries SET status = CASE WHEN status IN ('clicked','dismissed') THEN status ELSE 'delivered' END,
                              delivered_at = COALESCE(delivered_at, now())
-       WHERE id = $1 AND created_at = $2::timestamptz AND delivered_at IS NULL`,
+       WHERE id = $1 AND created_at = $2::timestamptz AND delivered_at IS NULL
+         AND status NOT IN ('failed','skipped')`,
       [delivery.id, delivery.created_at_key]);
     if (rowCount > 0) {
       await query('UPDATE notifications SET received = received + 1, updated_at = now() WHERE id = $1',
@@ -94,7 +95,8 @@ export async function trackClicked({ appId, notificationId, subscriptionId, deli
     const { rowCount } = await query(
       `UPDATE deliveries SET status='clicked', clicked_at = now(), action_id = COALESCE($3, action_id),
                              delivered_at = COALESCE(delivered_at, now())
-       WHERE id = $1 AND created_at = $2::timestamptz AND clicked_at IS NULL`,
+       WHERE id = $1 AND created_at = $2::timestamptz AND clicked_at IS NULL
+         AND status NOT IN ('failed','skipped')`,
       [delivery.id, delivery.created_at_key, actionId || null]);
     firstClick = rowCount > 0;
     if (firstClick) {
@@ -231,8 +233,8 @@ export async function appOverview(appId, days = 30) {
        GROUP BY day ORDER BY day`, [appId, days]),
   ]);
 
-  const ctr = totals.delivered > 0 ? totals.clicked / totals.delivered : 0;
-  const deliveryRate = totals.sent > 0 ? totals.delivered / totals.sent : 0;
+  const ctr = totals.delivered > 0 ? Math.min(totals.clicked / totals.delivered, 1) : 0;
+  const deliveryRate = totals.sent > 0 ? Math.min(totals.delivered / totals.sent, 1) : 0;
   return {
     audience,
     totals: { ...totals, ctr: Number(ctr.toFixed(4)), delivery_rate: Number(deliveryRate.toFixed(4)) },

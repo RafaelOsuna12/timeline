@@ -2,7 +2,7 @@
  * Panel de administración: sesión, gestión de apps y datos para la interfaz.
  * Todo cuelga de `/admin/api`. La interfaz estática se sirve desde /public.
  */
-import { one, many, query } from '../../db/index.js';
+import { one, many, query, Params } from '../../db/index.js';
 import { badRequest, unauthorized, notFound, conflict } from '../../lib/errors.js';
 import {
   hashPassword, verifyPassword, randomToken, sha256, generateApiKey, encryptSecret,
@@ -15,8 +15,11 @@ import { generateVapidKeys } from '../../services/channels/webpush.js';
 import { verifyCredentials, clearTokenCache } from '../../services/channels/fcm.js';
 import { appOverview, audienceBreakdown, notificationReport, growthSeries } from '../../services/analytics.js';
 import { listSubscriptions } from '../../services/subscriptions.js';
-import { listNotifications, createNotification, cancelNotification } from '../../services/notifications.js';
-import { countAudience } from '../../services/audience.js';
+import {
+  listNotifications, createNotification, cancelNotification, sendAbWinner,
+} from '../../services/notifications.js';
+import { countAudience, countSegment, buildFilterSql } from '../../services/audience.js';
+import { isValidCron } from '../../lib/cron.js';
 import { stats as queueStats } from '../../services/queue.js';
 import logger from '../../lib/logger.js';
 
@@ -376,6 +379,70 @@ export default async function dashboardRoutes(fastify) {
     automations: await many('SELECT * FROM automations WHERE app_id = $1 ORDER BY created_at DESC',
       [request.pushApp.id]),
   }));
+
+  fastify.post('/admin/api/apps/:appId/segments', editor, async (request, reply) => {
+    const { name, description, filters = [] } = request.body || {};
+    if (!name) throw badRequest('El segmento necesita un nombre');
+    buildFilterSql(filters, new Params());        // valida las reglas antes de guardar
+    const segment = await one(
+      `INSERT INTO segments (app_id, name, description, filters) VALUES ($1,$2,$3,$4)
+       ON CONFLICT (app_id, lower(name)) DO UPDATE
+         SET filters = EXCLUDED.filters, description = EXCLUDED.description, updated_at = now()
+       RETURNING *`,
+      [request.pushApp.id, name, description || null, JSON.stringify(filters)]);
+    segment.cached_count = await countSegment(request.pushApp.id, segment.id);
+    await query('UPDATE segments SET cached_count = $2, cached_at = now() WHERE id = $1',
+      [segment.id, segment.cached_count]);
+    reply.code(201);
+    return { segment };
+  });
+
+  fastify.delete('/admin/api/apps/:appId/segments/:id', editor, async (request) => {
+    const { rowCount } = await query(
+      'DELETE FROM segments WHERE app_id = $1 AND id = $2 AND NOT is_system',
+      [request.pushApp.id, request.params.id]);
+    if (!rowCount) throw notFound('Segmento no encontrado o es del sistema');
+    return { deleted: true };
+  });
+
+  fastify.post('/admin/api/apps/:appId/automations', editor, async (request, reply) => {
+    const { name, trigger, steps = [], status = 'paused', segment_id } = request.body || {};
+    if (!name || !trigger?.type) throw badRequest('Faltan el nombre o el disparador');
+    if (trigger.type === 'schedule' && !isValidCron(trigger.cron)) {
+      throw badRequest('La expresión cron no es válida (5 campos)');
+    }
+    if (!steps.length) throw badRequest('La automatización necesita al menos un paso');
+    const automation = await one(
+      `INSERT INTO automations (app_id, name, trigger, steps, status, segment_id)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [request.pushApp.id, name, trigger, JSON.stringify(steps), status, segment_id || null]);
+    reply.code(201);
+    return { automation };
+  });
+
+  fastify.patch('/admin/api/apps/:appId/automations/:id', editor, async (request) => {
+    const { status, name, steps, trigger } = request.body || {};
+    const automation = await one(
+      `UPDATE automations SET status = COALESCE($3, status), name = COALESCE($4, name),
+              steps = COALESCE($5, steps), trigger = COALESCE($6, trigger), updated_at = now()
+       WHERE app_id = $1 AND id = $2 RETURNING *`,
+      [request.pushApp.id, request.params.id, status || null, name || null,
+       steps ? JSON.stringify(steps) : null, trigger || null]);
+    if (!automation) throw notFound('Automatización no encontrada');
+    return { automation };
+  });
+
+  fastify.delete('/admin/api/apps/:appId/automations/:id', editor, async (request) => {
+    const { rowCount } = await query('DELETE FROM automations WHERE app_id = $1 AND id = $2',
+      [request.pushApp.id, request.params.id]);
+    if (!rowCount) throw notFound('Automatización no encontrada');
+    return { deleted: true };
+  });
+
+  /** Cierra un test A/B enviando la variante ganadora al resto de la audiencia. */
+  fastify.post('/admin/api/apps/:appId/notifications/:id/winner', editor, async (request) =>
+    sendAbWinner(request.pushApp, request.params.id, {
+      variantId: request.body?.variant_id, createdBy: request.admin.user_id }));
 
   /** Estado del sistema: cola, workers y base de datos. */
   fastify.get('/admin/api/system', auth, async () => {

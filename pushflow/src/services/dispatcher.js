@@ -263,13 +263,22 @@ export async function sendBatch({ notificationId, deliveryIds }) {
     }
   });
 
+  // Errores de configuración de la app: la entrega falla, pero el dispositivo
+  // sigue siendo válido. Invalidarlo borraría toda la audiencia por un ajuste
+  // pendiente (por ejemplo, credenciales de FCM sin subir).
+  const APP_LEVEL_ERRORS = new Set([
+    'no_fcm_credentials', 'no_vapid', 'fcm_auth_error', 'unsupported_channel',
+  ]);
+
   const sent = [], failed = [], invalidate = [];
   for (const { item, res } of results) {
     if (res.ok) {
       sent.push({ id: item.delivery_id, providerId: res.providerId || null });
     } else {
       failed.push({ id: item.delivery_id, code: res.errorCode, message: res.error });
-      if (res.permanent) invalidate.push({ id: item.id, reason: res.errorCode });
+      if (res.permanent && !APP_LEVEL_ERRORS.has(res.errorCode)) {
+        invalidate.push({ id: item.id, reason: res.errorCode });
+      }
     }
   }
 

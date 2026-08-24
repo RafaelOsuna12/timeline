@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "description": "PushFlow - Self-hosted push notification platform (OneSignal-compatible) for Web Push and Android",
   "type": "module",
-  "engines": { "node": ">=20.11" },
+  "engines": {
+    "node": ">=20.11"
+  },
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
@@ -14,7 +16,9 @@
     "seed": "node scripts/seed.js",
     "vapid": "node scripts/generate-vapid.js",
     "create-admin": "node scripts/create-admin.js",
-    "test": "node --test tests/"
+    "test": "node --test tests/unit.test.js",
+    "test:integration": "node tests/integration.mjs",
+    "test:e2e": "node tests/e2e-send.mjs"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

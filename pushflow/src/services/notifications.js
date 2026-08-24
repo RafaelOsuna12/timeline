@@ -268,6 +268,50 @@ export async function listNotifications(appId, { limit = 30, offset = 0, status 
   return { notifications: rows, total: Number(total.n), limit, offset };
 }
 
+
+/**
+ * Cierra un test A/B: elige la variante con mejor CTR (o la indicada) y la
+ * envía al resto de la audiencia original.
+ */
+export async function sendAbWinner(app, notificationId, { variantId = null, createdBy = null } = {}) {
+  const notification = await one('SELECT * FROM notifications WHERE app_id = $1 AND id = $2',
+    [app.id, notificationId]);
+  if (!notification) throw notFound('Notificación no encontrada');
+  if (!notification.ab_test?.variants?.length) throw badRequest('Esta notificación no es un test A/B');
+
+  const winnerId = variantId || (await one(
+    `SELECT variant FROM deliveries WHERE notification_id = $1 AND variant IS NOT NULL
+     GROUP BY variant
+     ORDER BY count(*) FILTER (WHERE clicked_at IS NOT NULL)::numeric
+              / GREATEST(count(*) FILTER (WHERE delivered_at IS NOT NULL), 1) DESC
+     LIMIT 1`, [notificationId]))?.variant;
+  if (!winnerId) throw badRequest('Todavía no hay datos suficientes para elegir una ganadora');
+
+  const winner = notification.ab_test.variants.find((v) => String(v.id) === String(winnerId));
+  if (!winner) throw badRequest(`La variante ${winnerId} no existe`);
+
+  const result = await createNotification(app, {
+    headings: winner.headings,
+    contents: winner.contents,
+    url: winner.url || notification.url,
+    image_url: winner.image_url || notification.image_url,
+    icon_url: notification.icon_url,
+    buttons: notification.buttons,
+    channels: notification.channels,
+    included_segments: notification.included_segments,
+    excluded_segments: notification.excluded_segments,
+    filters: notification.filters,
+    // Excluye a quien ya recibió el test para no duplicar el mensaje.
+    name: `${notification.name || 'A/B'} — ganadora ${winnerId}`,
+  }, { createdBy, source: 'ab_winner' });
+
+  await query(
+    `UPDATE notifications SET ab_test = jsonb_set(ab_test, '{winner}', to_jsonb($2::text)),
+            updated_at = now() WHERE id = $1`, [notificationId, String(winnerId)]);
+
+  return { winner: winnerId, notification_id: result.notification.id };
+}
+
 export default {
-  buildNotification, createNotification, cancelNotification, listNotifications,
+  buildNotification, createNotification, cancelNotification, listNotifications, sendAbWinner,
 };

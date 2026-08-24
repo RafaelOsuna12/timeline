@@ -37,8 +37,8 @@ export async function buildServer() {
     logger: false,
     trustProxy: config.server.trustProxy,
     bodyLimit: config.server.bodyLimit,
-    disableRequestLogging: true,
-    ignoreTrailingSlash: true,
+    // Sin logger de Fastify: el registro de peticiones lo hace nuestro hook onResponse.
+    routerOptions: { ignoreTrailingSlash: true },
     genReqId: () => Math.random().toString(36).slice(2, 12),
   });
 

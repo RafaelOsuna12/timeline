@@ -1,9 +1,9 @@
 /** API REST de notificaciones (`/api/v1/notifications`). */
 import { one, many } from '../../db/index.js';
-import { notFound, badRequest } from '../../lib/errors.js';
+import { notFound } from '../../lib/errors.js';
 import { requireScope } from '../../plugins/auth.js';
 import {
-  createNotification, cancelNotification, listNotifications,
+  createNotification, cancelNotification, listNotifications, sendAbWinner,
 } from '../../services/notifications.js';
 import { notificationReport } from '../../services/analytics.js';
 import { countAudience } from '../../services/audience.js';
@@ -85,38 +85,6 @@ export default async function notificationRoutes(fastify) {
    * POST /notifications/:id/winner — cierra un test A/B enviando la variante
    * ganadora al resto de la audiencia.
    */
-  fastify.post('/notifications/:id/winner', write, async (request) => {
-    const notification = await one('SELECT * FROM notifications WHERE app_id = $1 AND id = $2',
-      [request.pushApp.id, request.params.id]);
-    if (!notification) throw notFound('Notificación no encontrada');
-    if (!notification.ab_test?.variants?.length) throw badRequest('Esta notificación no es un test A/B');
-
-    const variantId = request.body?.variant_id
-      || (await one(
-        `SELECT variant FROM deliveries WHERE notification_id = $1 AND variant IS NOT NULL
-         GROUP BY variant
-         ORDER BY count(*) FILTER (WHERE clicked_at IS NOT NULL)::numeric
-                  / GREATEST(count(*) FILTER (WHERE delivered_at IS NOT NULL), 1) DESC
-         LIMIT 1`, [notification.id]))?.variant;
-    if (!variantId) throw badRequest('Todavía no hay datos suficientes para elegir una ganadora');
-
-    const winner = notification.ab_test.variants.find((v) => String(v.id) === String(variantId));
-    if (!winner) throw badRequest(`La variante ${variantId} no existe`);
-
-    const result = await createNotification(request.pushApp, {
-      ...request.body?.overrides,
-      headings: winner.headings, contents: winner.contents,
-      url: winner.url || notification.url,
-      image_url: winner.image_url || notification.image_url,
-      icon_url: notification.icon_url,
-      buttons: notification.buttons,
-      channels: notification.channels,
-      included_segments: notification.included_segments,
-      filters: notification.filters,
-      excluded_segments: notification.excluded_segments,
-      name: `${notification.name || 'A/B'} — ganadora ${variantId}`,
-    }, { source: 'ab_winner' });
-
-    return { winner: variantId, notification_id: result.notification.id };
-  });
+  fastify.post('/notifications/:id/winner', write, async (request) =>
+    sendAbWinner(request.pushApp, request.params.id, { variantId: request.body?.variant_id }));
 }

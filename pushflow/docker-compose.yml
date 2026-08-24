@@ -1,0 +1,73 @@
+# PushFlow con Docker Compose.
+#
+#   cp .env.example .env   (ajusta PUBLIC_URL y APP_SECRET)
+#   docker compose up -d
+#   docker compose exec app node scripts/create-admin.js --email tu@correo.com
+#
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${PGDATABASE:-pushflow}
+      POSTGRES_USER: ${PGUSER:-pushflow}
+      POSTGRES_PASSWORD: ${PGPASSWORD:?define PGPASSWORD en .env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    command:
+      - postgres
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - work_mem=8MB
+      - -c
+      - random_page_cost=1.1
+      - -c
+      - synchronous_commit=off
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PGUSER:-pushflow} -d ${PGDATABASE:-pushflow}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    build: .
+    command: node src/db/migrate.js up
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://${PGUSER:-pushflow}:${PGPASSWORD}@db:5432/${PGDATABASE:-pushflow}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://${PGUSER:-pushflow}:${PGPASSWORD}@db:5432/${PGDATABASE:-pushflow}
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - app-data:/app/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    build: .
+    command: node src/workers/index.js
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://${PGUSER:-pushflow}:${PGPASSWORD}@db:5432/${PGDATABASE:-pushflow}
+    volumes:
+      - app-data:/app/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  db-data:
+  app-data:

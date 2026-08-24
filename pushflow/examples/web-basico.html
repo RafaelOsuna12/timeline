@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ejemplo de integración de PushFlow</title>
+  <style>
+    body { font: 16px/1.6 system-ui, sans-serif; max-width: 640px; margin: 60px auto; padding: 0 20px; }
+    button { padding: 10px 16px; border-radius: 8px; border: 1px solid #ccc;
+             background: #2a78d6; color: #fff; font: inherit; cursor: pointer; margin: 4px 0; }
+    pre { background: #f4f4f2; padding: 12px; border-radius: 8px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>PushFlow — ejemplo</h1>
+  <p>Estado: <b id="estado">comprobando…</b></p>
+
+  <button onclick="PushFlow.showPrompt()">Activar notificaciones</button>
+  <button onclick="PushFlow.sendTags({ plan: 'pro', ciudad: 'CDMX' })">Enviar tags</button>
+  <button onclick="PushFlow.setExternalUserId('usuario-demo')">Identificar usuario</button>
+  <button onclick="PushFlow.addOutcome('compra', 49.9)">Registrar conversión</button>
+  <button onclick="PushFlow.unsubscribe()">Darse de baja</button>
+
+  <h3>Eventos</h3>
+  <pre id="registro"></pre>
+
+  <!-- Sustituye el dominio y el app-id por los tuyos -->
+  <script src="https://push.tudominio.com/sdk/v1/push.js"
+          data-app-id="TU-APP-ID" data-debug="true" async></script>
+
+  <script>
+    const registro = document.getElementById('registro');
+    const anotar = (texto) => { registro.textContent += texto + '\n'; };
+
+    window.addEventListener('load', () => {
+      if (!window.PushFlow) { anotar('El SDK no se cargó'); return; }
+
+      PushFlow.on('ready', (e) => {
+        document.getElementById('estado').textContent =
+          e.subscribed ? 'suscrito' : 'no suscrito (' + PushFlow.getPermission() + ')';
+        anotar('SDK listo · suscrito: ' + e.subscribed);
+      });
+      PushFlow.on('subscribed', (e) => anotar('suscrito: ' + e.subscriptionId));
+      PushFlow.on('permissionDenied', () => anotar('permiso denegado'));
+      PushFlow.on('notificationClick', (e) => anotar('clic en notificación: ' + e.url));
+      PushFlow.on('unsupported', () => anotar('este navegador no admite Web Push'));
+    });
+  </script>
+</body>
+</html>

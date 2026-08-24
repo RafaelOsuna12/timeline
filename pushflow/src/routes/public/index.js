@@ -107,6 +107,16 @@ export default async function publicRoutes(fastify) {
     return { subscription_id: subscription.id, tags: subscription.tags };
   });
 
+  /**
+   * POST /sdk/v1/subscription/:id/update — igual que el PATCH anterior.
+   * Existe porque HttpURLConnection (Android) no admite el método PATCH.
+   */
+  fastify.post('/sdk/v1/subscription/:id/update', async (request) => {
+    const app = await appFrom(request);
+    const subscription = await updateSubscription(app.id, request.params.id, request.body || {});
+    return { subscription_id: subscription.id, tags: subscription.tags };
+  });
+
   /** DELETE /sdk/v1/subscription/:id — baja desde el propio sitio o app. */
   fastify.delete('/sdk/v1/subscription/:id', async (request) => {
     const app = await appFrom(request);
