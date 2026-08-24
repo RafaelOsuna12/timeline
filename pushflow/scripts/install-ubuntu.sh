@@ -16,13 +16,14 @@ DB_USER="pushflow"
 SKIP_TLS=false
 NGINX_MODE="auto"      # auto | site | snippet | none
 APP_PORT="3000"
+PORT_EXPLICIT=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --domain) DOMAIN="$2"; shift 2 ;;
     --email) EMAIL="$2"; shift 2 ;;
     --dir) INSTALL_DIR="$2"; shift 2 ;;
-    --port) APP_PORT="$2"; shift 2 ;;
+    --port) APP_PORT="$2"; PORT_EXPLICIT=true; shift 2 ;;
     --nginx-mode) NGINX_MODE="$2"; shift 2 ;;
     --existing-tls) SKIP_TLS=true; shift ;;   # el dominio ya tiene certificado
     --skip-tls) SKIP_TLS=true; shift ;;
@@ -63,8 +64,17 @@ fi
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# Si el puerto está ocupado por una instalación previa de PushFlow, no es un
+# problema: systemd reiniciará el servicio al final.
 if (ss -lnt 2>/dev/null || netstat -lnt 2>/dev/null) | grep -qE ":$APP_PORT\b"; then
-  die "El puerto $APP_PORT ya está ocupado. Elige otro con --port <numero>."
+  OWN_PORT=""
+  [[ -f "$INSTALL_DIR/.env" ]] && OWN_PORT="$(grep -m1 '^PORT=' "$INSTALL_DIR/.env" | cut -d= -f2 | tr -d ' ')"
+  if [[ "$OWN_PORT" == "$APP_PORT" ]]; then
+    echo "  El puerto $APP_PORT lo usa la instalación existente de PushFlow: se reutiliza."
+  else
+    die "El puerto $APP_PORT ya está ocupado por otro servicio. Elige otro con --port <numero>.
+     Para ver quién lo usa:  sudo ss -lntp | grep :$APP_PORT"
+  fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -163,6 +173,21 @@ fi
 
 # ---------------------------------------------------------------------------
 log "Escribiendo la configuración"
+
+# Si ya hay un .env, su PORT manda salvo que se pida otro con --port:
+# de lo contrario nginx apuntaría a un puerto donde no escucha nadie.
+if [[ -f "$INSTALL_DIR/.env" ]]; then
+  ENV_PORT="$(grep -m1 '^PORT=' "$INSTALL_DIR/.env" | cut -d= -f2 | tr -d ' ')"
+  if [[ -n "$ENV_PORT" && "$ENV_PORT" != "$APP_PORT" ]]; then
+    if [[ "$PORT_EXPLICIT" == true ]]; then
+      warn "Cambiando el puerto de $ENV_PORT a $APP_PORT en el .env existente"
+      sed -i "s|^PORT=.*|PORT=$APP_PORT|" "$INSTALL_DIR/.env"
+    else
+      warn "El .env existente usa el puerto $ENV_PORT: se respeta"
+      APP_PORT="$ENV_PORT"
+    fi
+  fi
+fi
 APP_SECRET="$(openssl rand -base64 48)"
 if [[ -f "$INSTALL_DIR/.env" ]]; then
   warn "Ya existe .env: se conserva el actual."

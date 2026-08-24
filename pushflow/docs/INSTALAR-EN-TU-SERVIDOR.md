@@ -29,10 +29,27 @@ del subdominio, si tiene certificado y si el servidor puede salir a FCM.
 
 | Si ves… | Haz esto |
 |---|---|
-| `Puerto 3000 OCUPADO` | Añade `--port 3001` (o el que esté libre) al instalador |
+| `Puerto 3000 OCUPADO` | El diagnóstico te sugiere uno libre: añade `--port 3010` |
+| `El vhost YA hace proxy_pass` | **Párate.** Ya hay otra aplicación en ese dominio: mira el apartado siguiente |
 | Un panel detectado (Plesk, cPanel, CyberPanel, aaPanel…) | Salta al [apartado de paneles](#si-usas-un-panel-de-control) |
 | `PostgreSQL … versión 12` o similar | Avísame: hay que decidir si conviven dos versiones |
 | `fcm.googleapis.com NO alcanzable` | Tu firewall bloquea la salida; ábrela o Android no funcionará |
+
+### Si el subdominio ya sirve otra aplicación
+
+El diagnóstico te dirá a qué puerto apunta y qué proceso o contenedor lo
+atiende. Decide antes de tocar nada:
+
+- **Ya no la necesitas** → quita su `location /` del vhost y pon el `include`
+  de PushFlow en su lugar (Paso 2). Para un contenedor, párala también:
+  `docker stop <nombre>`.
+- **La necesitas y quieres conservarla** → dale a PushFlow otro subdominio
+  (`push.tudominio.com`, por ejemplo), con su propio certificado. Es lo más
+  limpio: cada aplicación en su dominio.
+- **Quieres las dos en el mismo dominio** → posible pero incómodo: PushFlow
+  necesita servir rutas en la raíz (`/sdk/`, `/api/`, `/pushflow-sw.js`) y
+  chocaría con la otra. Solo tiene sentido si la otra vive bajo un prefijo
+  claro como `/app/`.
 
 ---
 
@@ -42,11 +59,13 @@ del subdominio, si tiene certificado y si el servidor puede salir a FCM.
 sudo bash scripts/install-ubuntu.sh \
   --domain notificaciones.tudominio.com \
   --email tu@correo.com \
-  --existing-tls
+  --existing-tls \
+  --port 3010          # solo si el 3000 está ocupado
 ```
 
 `--existing-tls` es la clave: **no instala certbot ni pide certificado**, porque
-el tuyo ya funciona.
+el tuyo ya funciona. `--port` mantiene el puerto coherente en las tres piezas:
+el `.env`, el `proxy_pass` de nginx y el servicio de systemd.
 
 El script instala Node 22 y PostgreSQL 16 si faltan, crea la base de datos con
 una contraseña aleatoria, escribe `/opt/pushflow/.env`, aplica las migraciones,

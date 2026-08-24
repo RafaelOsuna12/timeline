@@ -105,7 +105,20 @@ if [[ -n "$DOMAIN" ]]; then
     fi
     ROOT=$(grep -hs -m1 "^\s*root\s" $CONF | awk '{print $2}' | tr -d ';')
     [[ -n "$ROOT" ]] && info "Raíz de documentos actual: $ROOT"
-    grep -qs "proxy_pass" $CONF && warn "El vhost ya hace proxy_pass a algo: revísalo antes de añadir PushFlow"
+    if grep -qs "proxy_pass" $CONF; then
+      warn "El vhost YA hace proxy_pass: hay otra aplicación sirviendo este dominio"
+      grep -hs "proxy_pass" $CONF | sed 's/^\s*/      /'
+      # ¿Qué escucha en el puerto de destino?
+      for TARGET_PORT in $(grep -hos "proxy_pass[^;]*:[0-9]\+" $CONF | grep -o '[0-9]\+$' | sort -u); do
+        OWNER=$( (ss -lntp 2>/dev/null || netstat -lntp 2>/dev/null) \
+                 | grep -E ":$TARGET_PORT\b" | grep -oP '(?<=users:\(\(")[^"]+' | head -1)
+        info "Puerto $TARGET_PORT servido por: ${OWNER:-desconocido}"
+        if [[ "$OWNER" == "docker-proxy" ]] && command -v docker >/dev/null; then
+          docker ps --format '{{.Names}}\t{{.Image}}\t{{.Ports}}' 2>/dev/null \
+            | grep ":$TARGET_PORT->" | sed 's/^/      contenedor: /'
+        fi
+      done
+    fi
   else
     info "No hay ningún vhost de nginx con ese server_name"
     [[ -n "$FOUND_PANEL" ]] && warn "Lo gestiona $FOUND_PANEL: añade el proxy desde su interfaz"
@@ -120,6 +133,23 @@ if [[ -n "$DOMAIN" ]]; then
     info "Sin certificado de Let's Encrypt propio para el dominio (puede estar en otra ruta o en un panel)"
   fi
 fi
+
+head_ "Docker"
+if command -v docker >/dev/null && docker info >/dev/null 2>&1; then
+  RUNNING=$(docker ps -q 2>/dev/null | wc -l)
+  info "$RUNNING contenedor(es) en marcha"
+  docker ps --format '  · {{.Names}} ({{.Image}}) → {{.Ports}}' 2>/dev/null | head -12
+else
+  info "Docker no está instalado o no responde"
+fi
+
+head_ "Puertos libres sugeridos para PushFlow"
+for CAND in 3010 3020 3030 4000; do
+  if ! (ss -lnt 2>/dev/null || netstat -lnt 2>/dev/null) | grep -qE ":$CAND\b"; then
+    ok "Puerto $CAND libre  →  usa: --port $CAND"
+    break
+  fi
+done
 
 head_ "Salida a internet (necesaria para enviar notificaciones)"
 for host in https://fcm.googleapis.com https://oauth2.googleapis.com https://updates.push.services.mozilla.com; do
