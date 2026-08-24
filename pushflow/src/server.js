@@ -75,6 +75,13 @@ export async function buildServer() {
       return reply.code(400).send({
         error: { code: 'invalid_request', message: error.message } });
     }
+    // 22P02 = invalid_text_representation: un uuid o número mal formado en la
+    // petición. Es un error del cliente, no del servidor.
+    if (error.code === '22P02') {
+      return reply.code(400).send({
+        error: { code: 'invalid_request',
+                 message: 'Algún identificador de la petición tiene un formato inválido' } });
+    }
     logger.error('error no controlado', {
       url: request.url, method: request.method, error: error.message, stack: error.stack });
     return reply.code(500).send({

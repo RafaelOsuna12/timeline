@@ -291,6 +291,12 @@ check('una app no ve las notificaciones de otra',
   (await req(`/api/v1/notifications/${notif.data.id}`,
     { key: otherApp.data.api_key })).status === 404);
 check('panel exige sesión', (await req('/admin/api/apps')).status === 401);
+// Un app_id mal copiado en el snippet debe dar un error claro, nunca un 500.
+const badId = await req('/sdk/v1/config?app_id=no-es-un-uuid');
+check('app_id inválido devuelve 400, no 500', badId.status === 400,
+  `recibido ${badId.status}`);
+check('app_id inexistente devuelve 404',
+  (await req('/sdk/v1/config?app_id=00000000-0000-4000-8000-000000000000')).status === 404);
 check('origen no autorizado rechazado',
   (await req(`/sdk/v1/config?app_id=${appId}`, { origin: 'https://sitio-malicioso.com' })).status === 403);
 const okOrigin = await req(`/sdk/v1/config?app_id=${appId}`, { origin: 'https://prueba.example' });

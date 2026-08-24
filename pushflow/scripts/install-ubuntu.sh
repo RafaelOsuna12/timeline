@@ -14,16 +14,42 @@ INSTALL_DIR="/opt/pushflow"
 DB_NAME="pushflow"
 DB_USER="pushflow"
 SKIP_TLS=false
+NGINX_MODE="auto"      # auto | site | snippet | none
+APP_PORT="3000"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --domain) DOMAIN="$2"; shift 2 ;;
     --email) EMAIL="$2"; shift 2 ;;
     --dir) INSTALL_DIR="$2"; shift 2 ;;
+    --port) APP_PORT="$2"; shift 2 ;;
+    --nginx-mode) NGINX_MODE="$2"; shift 2 ;;
+    --existing-tls) SKIP_TLS=true; shift ;;   # el dominio ya tiene certificado
     --skip-tls) SKIP_TLS=true; shift ;;
-    *) echo "Opción desconocida: $1"; exit 1 ;;
+    -h|--help)
+      cat <<'HELP'
+Uso: sudo bash scripts/install-ubuntu.sh --domain <dominio> [opciones]
+
+  --domain <d>        Dominio o subdominio donde vivirá PushFlow (obligatorio)
+  --email <e>         Correo para Let's Encrypt y para el usuario administrador
+  --existing-tls      El dominio YA tiene SSL: no se instala ni ejecuta certbot
+  --nginx-mode <m>    auto (por defecto) | site | snippet | none
+                        auto    → detecta si ya hay un vhost para el dominio
+                        site    → crea un vhost nuevo
+                        snippet → genera un fragmento para incluir en tu vhost
+                        none    → no toca nginx; solo imprime la configuración
+  --port <p>          Puerto interno de la aplicación (por defecto 3000)
+  --dir <ruta>        Directorio de instalación (por defecto /opt/pushflow)
+HELP
+      exit 0 ;;
+    *) echo "Opción desconocida: $1 (usa --help)"; exit 1 ;;
   esac
 done
+
+case "$NGINX_MODE" in
+  auto|site|snippet|none) ;;
+  *) echo "--nginx-mode debe ser auto, site, snippet o none"; exit 1 ;;
+esac
 
 log()  { printf '\n\033[1;34m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m !\033[0m %s\n' "$*"; }
@@ -36,6 +62,10 @@ if [[ "$SKIP_TLS" == false && -z "$EMAIL" ]]; then
 fi
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+if (ss -lnt 2>/dev/null || netstat -lnt 2>/dev/null) | grep -qE ":$APP_PORT\b"; then
+  die "El puerto $APP_PORT ya está ocupado. Elige otro con --port <numero>."
+fi
 
 # ---------------------------------------------------------------------------
 log "Instalando paquetes del sistema"
@@ -68,8 +98,13 @@ fi
 systemctl enable --now postgresql
 log "PostgreSQL $(sudo -u postgres psql -tAc 'SHOW server_version;' | tr -d ' ')"
 
-apt-get install -y -qq nginx
-[[ "$SKIP_TLS" == false ]] && apt-get install -y -qq certbot python3-certbot-nginx
+if [[ "$NGINX_MODE" != "none" ]]; then
+  apt-get install -y -qq nginx
+  mkdir -p /etc/nginx/snippets /etc/nginx/conf.d
+fi
+if [[ "$SKIP_TLS" == false && "$NGINX_MODE" != "none" ]]; then
+  apt-get install -y -qq certbot python3-certbot-nginx
+fi
 
 # ---------------------------------------------------------------------------
 log "Creando usuario del sistema y directorio de la aplicación"
@@ -84,11 +119,30 @@ mkdir -p "$INSTALL_DIR/data/exports"
 
 # ---------------------------------------------------------------------------
 log "Configurando la base de datos"
-DB_PASSWORD="$(openssl rand -base64 32 | tr -d '/+=' | head -c 32)"
-sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$DB_USER'" | grep -q 1 || \
+
+# Si ya hay un .env de una instalación anterior, se reutiliza su contraseña:
+# generar una nueva dejaría la base inaccesible para la aplicación.
+if [[ -f "$INSTALL_DIR/.env" ]]; then
+  EXISTING_URL="$(grep -m1 '^DATABASE_URL=' "$INSTALL_DIR/.env" | cut -d= -f2-)"
+  DB_PASSWORD="$(printf '%s' "$EXISTING_URL" | sed -n 's|.*://[^:]*:\([^@]*\)@.*|\1|p')"
+  [[ -n "$DB_PASSWORD" ]] && info_reuse=true
+fi
+[[ -n "${DB_PASSWORD:-}" ]] || DB_PASSWORD="$(openssl rand -base64 32 | tr -d '/+=' | head -c 32)"
+
+if sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$DB_USER'" | grep -q 1; then
+  # El rol ya existe: se sincroniza su contraseña con la que usará la aplicación.
+  sudo -u postgres psql -qc "ALTER ROLE $DB_USER LOGIN PASSWORD '$DB_PASSWORD';"
+  [[ "${info_reuse:-false}" == true ]] && warn "Rol '$DB_USER' existente: se reutiliza la contraseña del .env" \
+                                        || warn "Rol '$DB_USER' existente: se le asigna una contraseña nueva"
+else
   sudo -u postgres psql -qc "CREATE ROLE $DB_USER LOGIN PASSWORD '$DB_PASSWORD';"
+fi
+
 sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='$DB_NAME'" | grep -q 1 || \
   sudo -u postgres psql -qc "CREATE DATABASE $DB_NAME OWNER $DB_USER;"
+
+# La aplicación necesita poder crear tablas en el esquema public.
+sudo -u postgres psql -q -d "$DB_NAME" -c "GRANT ALL ON SCHEMA public TO $DB_USER;" 2>/dev/null || true
 
 # Ajustes razonables para un VPS pequeño (se aplican solo si no existen ya).
 PG_CONF="/etc/postgresql/16/main/conf.d/pushflow.conf"
@@ -116,7 +170,7 @@ else
   cat > "$INSTALL_DIR/.env" <<ENVEOF
 NODE_ENV=production
 HOST=127.0.0.1
-PORT=3000
+PORT=$APP_PORT
 PUBLIC_URL=https://$DOMAIN
 
 DATABASE_URL=postgres://$DB_USER:$DB_PASSWORD@127.0.0.1:5432/$DB_NAME
@@ -151,6 +205,10 @@ sudo -u pushflow env "PATH=$PATH" node src/db/migrate.js up
 
 # ---------------------------------------------------------------------------
 log "Instalando los servicios systemd"
+# La ruta de Node no siempre es /usr/bin/node (nvm, /opt, compilaciones propias).
+NODE_BIN="$(command -v node)"
+[[ -x "$NODE_BIN" ]] || die "No se encuentra el ejecutable de node en el PATH."
+log "Node en uso: $NODE_BIN"
 cat > /etc/systemd/system/pushflow.service <<SVCEOF
 [Unit]
 Description=PushFlow — servidor de notificaciones push
@@ -162,7 +220,7 @@ Type=simple
 User=pushflow
 Group=pushflow
 WorkingDirectory=$INSTALL_DIR
-ExecStart=/usr/bin/node src/server.js
+ExecStart=$NODE_BIN src/server.js
 Restart=always
 RestartSec=5
 StandardOutput=journal
@@ -195,7 +253,7 @@ Type=simple
 User=pushflow
 Group=pushflow
 WorkingDirectory=$INSTALL_DIR
-ExecStart=/usr/bin/node src/workers/index.js
+ExecStart=$NODE_BIN src/workers/index.js
 Restart=always
 RestartSec=5
 StandardOutput=journal
@@ -218,76 +276,153 @@ systemctl enable --now pushflow pushflow-worker
 
 # ---------------------------------------------------------------------------
 log "Configurando Nginx"
-cat > /etc/nginx/sites-available/pushflow <<NGXEOF
-# Caché del SDK: se sirve mucho y cambia poco.
+
+# Directivas de nivel http: deben vivir en conf.d, no dentro de un server{}.
+mkdir -p /var/cache/nginx/pushflow
+cat > /etc/nginx/conf.d/pushflow-http.conf <<'HTTPEOF'
+# PushFlow — caché del SDK (se sirve mucho y cambia poco) y límite por IP.
 proxy_cache_path /var/cache/nginx/pushflow levels=1:2 keys_zone=pushflow_sdk:10m
                  max_size=100m inactive=24h use_temp_path=off;
+limit_req_zone $binary_remote_addr zone=pushflow_public:10m rate=30r/s;
+HTTPEOF
 
-limit_req_zone \$binary_remote_addr zone=pushflow_public:10m rate=30r/s;
+# Fragmento con las rutas: sirve tanto para un vhost nuevo como para uno tuyo.
+cat > /etc/nginx/snippets/pushflow.conf <<SNIPEOF
+# PushFlow — incluir dentro del bloque server{} del dominio $DOMAIN
+#
+# Nota: las cabeceras CORS y Service-Worker-Allowed las emite la aplicación,
+# que conoce los orígenes autorizados de cada app. No se añaden aquí: dos
+# cabeceras Access-Control-Allow-Origin distintas hacen que el navegador
+# rechace la petición.
+client_max_body_size 4m;
 
-server {
-    listen 80;
-    listen [::]:80;
-    server_name $DOMAIN;
+# Cabeceras de proxy comunes a todos los bloques.
+# (nginx no permite factorizarlas fuera sin repetir el include, así que van
+#  repetidas en cada location.)
 
-    client_max_body_size 4m;
+# 1. Ficheros estáticos del SDK: se sirven mucho y cambian poco → caché.
+#    Debe ir ANTES del bloque de límite de peticiones: entre dos regex,
+#    nginx aplica la primera que coincida.
+location ~ ^/sdk/v1/(push|pushflow-sw)\.js\$ {
+    proxy_pass http://127.0.0.1:$APP_PORT;
+    proxy_cache pushflow_sdk;
+    proxy_cache_valid 200 1h;
+    add_header X-Cache-Status \$upstream_cache_status;
+    proxy_set_header Host \$host;
+    proxy_set_header X-Real-IP \$remote_addr;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto \$scheme;
+}
+
+# 2. Service worker en la raíz (por si sirves PushFlow en su propio dominio).
+location = /pushflow-sw.js {
+    proxy_pass http://127.0.0.1:$APP_PORT;
+    proxy_set_header Host \$host;
+    proxy_set_header X-Real-IP \$remote_addr;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto \$scheme;
+}
+
+# 3. Endpoints públicos que llegan desde los navegadores: límite por IP.
+location ~ ^/(api/v1/events|api/v1/click|sdk/v1/) {
+    limit_req zone=pushflow_public burst=60 nodelay;
+    proxy_pass http://127.0.0.1:$APP_PORT;
+    proxy_set_header Host \$host;
+    proxy_set_header X-Real-IP \$remote_addr;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto \$scheme;
+}
+
+# 4. Panel de administración y API REST.
+location / {
+    proxy_pass http://127.0.0.1:$APP_PORT;
+    proxy_http_version 1.1;
+    proxy_read_timeout 300s;
     gzip on;
     gzip_types application/javascript application/json text/css text/plain;
     gzip_min_length 512;
-
-    # El SDK y el service worker: cacheables y accesibles desde cualquier origen.
-    location /sdk/ {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_cache pushflow_sdk;
-        proxy_cache_valid 200 1h;
-        add_header Access-Control-Allow-Origin "*" always;
-        add_header X-Cache-Status \$upstream_cache_status;
-        include /etc/nginx/proxy_params;
-    }
-
-    location = /pushflow-sw.js {
-        proxy_pass http://127.0.0.1:3000;
-        add_header Service-Worker-Allowed "/" always;
-        add_header Cache-Control "no-cache" always;
-        include /etc/nginx/proxy_params;
-    }
-
-    # Endpoints públicos del SDK: con límite de peticiones por IP.
-    location ~ ^/(api/v1/events|api/v1/click|sdk/v1/) {
-        limit_req zone=pushflow_public burst=60 nodelay;
-        proxy_pass http://127.0.0.1:3000;
-        include /etc/nginx/proxy_params;
-    }
-
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_read_timeout 300s;
-        include /etc/nginx/proxy_params;
-    }
+    proxy_set_header Host \$host;
+    proxy_set_header X-Real-IP \$remote_addr;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto \$scheme;
 }
-NGXEOF
+SNIPEOF
 
-# proxy_params ya trae Host, X-Real-IP y X-Forwarded-For en Ubuntu.
-grep -q "X-Forwarded-Proto" /etc/nginx/proxy_params 2>/dev/null || \
-  echo 'proxy_set_header X-Forwarded-Proto $scheme;' >> /etc/nginx/proxy_params
+# ¿Existe ya un vhost con este server_name? Si lo hay, NO se toca.
+EXISTING_VHOST="$(grep -rls "server_name[^;]*\b${DOMAIN}\b" /etc/nginx/ 2>/dev/null \
+                  | grep -v '/snippets/' | head -1)"
 
-mkdir -p /var/cache/nginx/pushflow
-ln -sf /etc/nginx/sites-available/pushflow /etc/nginx/sites-enabled/pushflow
-rm -f /etc/nginx/sites-enabled/default
-nginx -t && systemctl reload nginx
+if [[ "$NGINX_MODE" == "auto" ]]; then
+  if [[ -n "$EXISTING_VHOST" ]]; then NGINX_MODE="snippet"; else NGINX_MODE="site"; fi
+fi
+
+NGINX_MANUAL_STEP=""
+
+case "$NGINX_MODE" in
+  site)
+    log "Creando un vhost nuevo para $DOMAIN"
+    # Solo se declara la escucha IPv6 si el sistema la admite: en un servidor
+    # con IPv6 deshabilitado, `listen [::]:80` impide arrancar nginx entero.
+    LISTEN6=""
+    if [[ -f /proc/net/if_inet6 ]]; then LISTEN6="    listen [::]:80;"; fi
+    cat > /etc/nginx/sites-available/pushflow <<VHOSTEOF
+server {
+    listen 80;
+$LISTEN6
+    server_name $DOMAIN;
+
+    include snippets/pushflow.conf;
+}
+VHOSTEOF
+    ln -sf /etc/nginx/sites-available/pushflow /etc/nginx/sites-enabled/pushflow
+    # El sitio "default" se deja intacto: puede estar sirviendo otros dominios.
+    ;;
+
+  snippet)
+    warn "Ya existe un vhost para $DOMAIN en: $EXISTING_VHOST"
+    warn "No se toca para no romper tu configuración ni tu certificado."
+    NGINX_MANUAL_STEP="  Añade esta línea dentro del bloque server{} de tu dominio
+  (el que escucha en 443) en: $EXISTING_VHOST
+
+      include snippets/pushflow.conf;
+
+  Si ese server{} ya tiene un bloque 'location /', sustitúyelo por el include
+  o mueve PushFlow a una subruta. Después:
+
+      sudo nginx -t && sudo systemctl reload nginx"
+    ;;
+
+  none)
+    NGINX_MANUAL_STEP="  Se ha generado /etc/nginx/snippets/pushflow.conf y
+  /etc/nginx/conf.d/pushflow-http.conf, pero no se ha activado ningún sitio.
+  Añade 'include snippets/pushflow.conf;' donde corresponda y recarga nginx."
+    ;;
+esac
+
+if [[ "$NGINX_MODE" == "site" ]]; then
+  if nginx -t 2>/dev/null; then
+    systemctl reload nginx
+    ok_nginx=true
+  else
+    warn "La configuración de nginx tiene errores; no se ha recargado:"
+    nginx -t 2>&1 | sed 's/^/    /'
+  fi
+else
+  # En modo snippet/none solo se comprueba que lo generado sea válido.
+  nginx -t >/dev/null 2>&1 || warn "Revisa 'nginx -t' antes de recargar."
+fi
 
 # ---------------------------------------------------------------------------
-if [[ "$SKIP_TLS" == false ]]; then
-  log "Solicitando el certificado TLS (Let's Encrypt)"
+if [[ "$SKIP_TLS" == false && "$NGINX_MODE" == "site" ]]; then
+  log "Solicitando el certificado TLS (Let\'s Encrypt)"
   if certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "$EMAIL" --redirect; then
     log "HTTPS activo. La renovación es automática."
   else
-    warn "No se pudo emitir el certificado. Revisa que el DNS de $DOMAIN apunte a este servidor"
+    warn "No se pudo emitir el certificado. Revisa que el DNS de $DOMAIN apunte aquí"
     warn "y vuelve a ejecutar:  certbot --nginx -d $DOMAIN"
   fi
+elif [[ "$SKIP_TLS" == true ]]; then
+  log "TLS: se usa el certificado que ya tienes (no se ejecuta certbot)"
 fi
 
 log "Configurando el cortafuegos"
@@ -321,5 +456,8 @@ cat <<FINAL
   Siguiente paso: entra en el panel, crea tu aplicación y copia
   el código de instalación en tu web o en tu APK.
 ────────────────────────────────────────────────────────────────
-
 FINAL
+
+if [[ -n "$NGINX_MANUAL_STEP" ]]; then
+  printf '\033[1;33mFALTA UN PASO MANUAL EN NGINX\033[0m\n\n%s\n\n' "$NGINX_MANUAL_STEP"
+fi

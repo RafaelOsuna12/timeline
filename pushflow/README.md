@@ -55,8 +55,13 @@ sudo bash scripts/install-ubuntu.sh --domain push.tudominio.com --email tu@corre
 ```
 
 El instalador deja listo Node.js 22, PostgreSQL 16, Nginx con HTTPS, los
-servicios de systemd y el usuario administrador. Detalle completo y alternativas
-(Docker, instalación manual) en **[docs/INSTALACION.md](docs/INSTALACION.md)**.
+servicios de systemd y el usuario administrador.
+
+- **¿Tu dominio ya tiene nginx y SSL?** Usa `--existing-tls`: el instalador no
+  tocará tu vhost ni tu certificado.
+  Guía paso a paso: **[docs/INSTALAR-EN-TU-SERVIDOR.md](docs/INSTALAR-EN-TU-SERVIDOR.md)**
+- Detalle completo y alternativas (Docker, manual): **[docs/INSTALACION.md](docs/INSTALACION.md)**
+- Diagnóstico previo: `sudo bash scripts/preflight.sh tu-dominio.com`
 
 ## Integración
 

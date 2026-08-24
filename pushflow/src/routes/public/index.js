@@ -6,6 +6,7 @@
  */
 import { one, many, query } from '../../db/index.js';
 import { badRequest, forbidden, notFound } from '../../lib/errors.js';
+import { isUuid } from '../../lib/validate.js';
 import { loadApp } from '../../plugins/auth.js';
 import { upsertSubscription, updateSubscription, unsubscribe, trackSession }
   from '../../services/subscriptions.js';
@@ -33,6 +34,9 @@ function assertOrigin(request, app) {
 async function appFrom(request, appId) {
   const id = appId || request.body?.app_id || request.query?.app_id;
   if (!id) throw badRequest('`app_id` es obligatorio');
+  // Sin esta comprobación, un app_id mal copiado en el snippet llegaría a
+  // PostgreSQL como uuid inválido y devolvería un 500 en vez de un aviso claro.
+  if (!isUuid(id)) throw badRequest(`\`app_id\` no es un identificador válido: ${String(id).slice(0, 40)}`);
   const app = await loadApp(id);
   if (!app) throw notFound('App no encontrada');
   assertOrigin(request, app);
