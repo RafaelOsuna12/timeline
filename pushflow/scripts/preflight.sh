@@ -93,7 +93,9 @@ if [[ -n "$DOMAIN" ]]; then
   [[ -n "$IP_DNS" && "$IP_DNS" == "$IP_LOCAL" ]] && ok "El DNS apunta a este servidor" \
     || warn "El DNS no coincide con la IP local (normal si usas Cloudflare en modo proxy)"
 
-  CONF=$(grep -rls "server_name[^;]*\b${DOMAIN}\b" /etc/nginx/ 2>/dev/null | head -3)
+  # Se excluyen copias de seguridad y snippets: solo interesan los vhost vivos.
+  CONF=$(grep -rls "server_name[^;]*\b${DOMAIN}\b" /etc/nginx/ 2>/dev/null \
+         | grep -vE '\.bak|\.save|\.orig|~$|/snippets/' | head -3)
   if [[ -n "$CONF" ]]; then
     ok "Ya existe un vhost de nginx para el dominio:"
     echo "$CONF" | sed 's/^/      /'
@@ -112,10 +114,15 @@ if [[ -n "$DOMAIN" ]]; then
       for TARGET_PORT in $(grep -hos "proxy_pass[^;]*:[0-9]\+" $CONF | grep -o '[0-9]\+$' | sort -u); do
         OWNER=$( (ss -lntp 2>/dev/null || netstat -lntp 2>/dev/null) \
                  | grep -E ":$TARGET_PORT\b" | grep -oP '(?<=users:\(\(")[^"]+' | head -1)
-        info "Puerto $TARGET_PORT servido por: ${OWNER:-desconocido}"
-        if [[ "$OWNER" == "docker-proxy" ]] && command -v docker >/dev/null; then
-          docker ps --format '{{.Names}}\t{{.Image}}\t{{.Ports}}' 2>/dev/null \
-            | grep ":$TARGET_PORT->" | sed 's/^/      contenedor: /'
+        if [[ -z "$OWNER" ]]; then
+          ok "Puerto $TARGET_PORT: no escucha nadie — ese dominio hoy devuelve 502."
+          ok "Puedes sustituirlo por PushFlow sin perder nada."
+        else
+          warn "Puerto $TARGET_PORT servido por: $OWNER — HAY una aplicación viva ahí"
+          if [[ "$OWNER" == "docker-proxy" ]] && command -v docker >/dev/null; then
+            docker ps --format '{{.Names}} ({{.Image}})' --filter "publish=$TARGET_PORT" 2>/dev/null \
+              | sed 's/^/      contenedor: /'
+          fi
         fi
       done
     fi

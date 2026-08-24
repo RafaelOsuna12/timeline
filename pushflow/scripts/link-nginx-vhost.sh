@@ -22,8 +22,9 @@ die()  { printf '\033[1;31m ✗\033[0m %s\n' "$*" >&2; exit 1; }
 [[ -f /etc/nginx/snippets/pushflow.conf ]] || \
   die "Falta /etc/nginx/snippets/pushflow.conf. Ejecuta antes el instalador."
 
+# Se excluyen copias de seguridad: enlazar una .bak no serviría de nada.
 VHOST="$(grep -rls "server_name[^;]*\b${DOMAIN}\b" /etc/nginx/sites-available/ /etc/nginx/conf.d/ 2>/dev/null \
-         | grep -v '/snippets/' | head -1)"
+         | grep -vE '\.bak|\.save|\.orig|~$|/snippets/' | head -1)"
 [[ -n "$VHOST" ]] || die "No encuentro ningún vhost con server_name $DOMAIN."
 
 log "Vhost encontrado: $VHOST"
