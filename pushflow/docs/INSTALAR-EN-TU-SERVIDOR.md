@@ -81,16 +81,36 @@ Conserva el `.env` y la contraseña de la base de datos que ya hubiera.
 ## Paso 2 · Conectar tu nginx
 
 Como ya existe un vhost para el subdominio, el instalador **no lo modifica**.
-Termina avisándote de que falta un paso manual y te dice el fichero exacto.
+Termina avisándote de que falta este paso.
 
-Edita ese fichero:
+### Opción A · Con el script (recomendado)
 
 ```bash
+sudo bash scripts/link-nginx-vhost.sh notificaciones.tudominio.com
+```
+
+Hace una copia de seguridad con marca de tiempo, comenta el `location /` que
+hubiera, inserta el `include`, te enseña el diff y **te pide confirmación**.
+Si `nginx -t` falla, restaura la copia y no recarga nada.
+
+Es idempotente: si ya está enlazado, avisa y no toca nada. Para revertir,
+descomenta el bloque original y quita el `include`, o restaura la copia:
+
+```bash
+sudo cp /etc/nginx/sites-available/TU-DOMINIO.bak-AAAAMMDD-HHMMSS \
+        /etc/nginx/sites-available/TU-DOMINIO
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+### Opción B · A mano
+
+```bash
+sudo cp /etc/nginx/sites-available/notificaciones.tudominio.com{,.bak}
 sudo nano /etc/nginx/sites-available/notificaciones.tudominio.com
 ```
 
 Dentro del bloque `server { … }` que escucha en **443**, añade el `include` y
-**borra o comenta** lo que sirviera antes ese dominio (`root`, `index`, un
+**quita o comenta** lo que sirviera antes ese dominio (`root`, `index`, un
 `location /` previo o un `proxy_pass` a otra aplicación):
 
 ```nginx
@@ -106,8 +126,6 @@ server {
     include snippets/pushflow.conf;      # ← añade esta línea
 }
 ```
-
-Comprueba y recarga:
 
 ```bash
 sudo nginx -t && sudo systemctl reload nginx
