@@ -376,6 +376,10 @@ VIEWS.compose = async (main) => {
               <input id="title_b" name="title_b"></div>
             <div class="field"><label for="message_b">Mensaje — versión B</label>
               <textarea id="message_b" name="message_b"></textarea></div>
+            <div class="field"><label for="sample">Porcentaje de la audiencia que entra en la prueba</label>
+              <input id="sample" name="sample" type="number" value="30" min="1" max="100">
+              <div class="hint">El resto queda reservado: al cerrar la prueba recibirá
+                la versión con mejor CTR, sin duplicados.</div></div>
           </div>
         </div>
       </div>
@@ -481,7 +485,7 @@ VIEWS.compose = async (main) => {
       body.delivery_time_of_day = form.delivery_time_of_day.value;
     }
     if (form.ab.checked && form.message_b.value) {
-      body.ab_test = { variants: [
+      body.ab_test = { sample_percent: Number(form.sample.value) || 100, variants: [
         { id: 'A', weight: 50, headings: { es: form.title.value }, contents: { es: form.message.value } },
         { id: 'B', weight: 50, headings: { es: form.title_b.value || form.title.value },
           contents: { es: form.message_b.value } },

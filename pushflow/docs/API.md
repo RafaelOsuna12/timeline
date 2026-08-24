@@ -98,7 +98,7 @@ Crea y envía (o programa) una notificación.
 
 | Campo | Descripción |
 |---|---|
-| `ab_test` | `{"variants":[{"id":"A","weight":50,"headings":…,"contents":…}, …]}` |
+| `ab_test` | Variantes y tamaño de la muestra (ver más abajo) |
 | `template_id` | Parte de una plantilla; el cuerpo tiene prioridad |
 | `idempotency_key` | Evita duplicados si reintentas la petición |
 | `dry_run` | `true` devuelve el número de destinatarios sin enviar nada |
@@ -136,10 +136,33 @@ Entregas individuales, para auditar.
 
 Cancela una notificación programada o en curso.
 
+### Tests A/B
+
+```json
+{
+  "contents": { "es": "texto por defecto" },
+  "included_segments": ["8f1c…"],
+  "ab_test": {
+    "sample_percent": 30,
+    "variants": [
+      { "id": "A", "weight": 50, "headings": {"es": "🎁 Regalo"},   "contents": {"es": "Ábrelo hoy"} },
+      { "id": "B", "weight": 50, "headings": {"es": "Tienes algo"}, "contents": {"es": "Caduca hoy"} }
+    ]
+  }
+}
+```
+
+`sample_percent` (1–100, por defecto 100) es la parte de la audiencia que
+participa en la prueba. El reparto es **determinista**: la misma suscripción
+cae siempre del mismo lado, de modo que el resto queda reservado para la
+variante ganadora.
+
 ### `POST /notifications/:id/winner`
 
-Cierra un test A/B: envía la variante con mejor CTR (o la de `variant_id`) al
-resto de la audiencia.
+Cierra el test: envía la variante con mejor CTR (o la de `variant_id`) **al
+resto de la audiencia**, excluyendo a quien ya recibió cualquier variante.
+Con `sample_percent: 100` no queda nadie fuera, así que conviene reservar una
+parte al crear el test.
 
 ---
 

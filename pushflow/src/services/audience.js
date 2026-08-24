@@ -250,6 +250,20 @@ export async function buildAudienceQuery(appId, target, { columns = 's.*' } = {}
     }
   }
 
+  // Muestreo determinista para tests A/B: la misma suscripción cae siempre en
+  // el mismo lado, así que la parte no muestreada es exactamente el resto.
+  if (target.samplePercent != null && target.samplePercent < 100) {
+    conds.push(`(abs(hashtext(s.id::text)) % 100) < ${p.add(Number(target.samplePercent))}`);
+  }
+
+  // Excluye a quien ya recibió otra notificación (envío de la variante ganadora).
+  if (target.excludeDeliveredFor) {
+    conds.push(`NOT EXISTS (
+      SELECT 1 FROM deliveries d
+      WHERE d.notification_id = ${p.add(target.excludeDeliveredFor)}
+        AND d.subscription_id = s.id AND d.status <> 'skipped')`);
+  }
+
   // Segmentos excluidos (se restan siempre, sea cual sea el modo de targeting).
   if (target.excludedSegments?.length) {
     const segments = await many(

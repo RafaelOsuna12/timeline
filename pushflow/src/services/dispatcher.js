@@ -127,6 +127,8 @@ export async function dispatchNotification(notificationId) {
     includeSubscriptionIds: notification.include_subscription_ids,
     includeExternalIds: notification.include_external_ids,
     channels: notification.channels,
+    samplePercent: notification.sample_percent,
+    excludeDeliveredFor: notification.exclude_delivered_for,
   };
 
   const now = new Date();

@@ -41,7 +41,12 @@ function parseAbTest(input) {
   if (!Array.isArray(variants) || variants.length < 2) {
     throw badRequest('Un test A/B necesita al menos 2 variantes');
   }
+  const samplePercent = Number(raw.sample_percent ?? raw.samplePercent ?? 100);
+  if (!Number.isFinite(samplePercent) || samplePercent <= 0 || samplePercent > 100) {
+    throw badRequest('`ab_test.sample_percent` debe estar entre 1 y 100');
+  }
   return {
+    sample_percent: samplePercent,
     variants: variants.map((v, index) => ({
       id: String(v.id || String.fromCharCode(65 + index)),
       weight: Number(v.weight ?? Math.floor(100 / variants.length)),
@@ -116,6 +121,7 @@ export async function buildNotification(app, input, { createdBy = null, source =
   }
 
   const target = resolveTarget(base);
+  const abTest = parseAbTest(base);
   const sendAfter = parseWhen(base.send_after || base.enviar_despues);
   const delayedOption = base.delayed_option
     || (base.delivery_time_of_day ? 'timezone' : null)
@@ -168,7 +174,9 @@ export async function buildNotification(app, input, { createdBy = null, source =
       ? Number(base.throttle_rate_per_minute) : null,
     respect_quiet_hours: parseBool(base.respect_quiet_hours, true),
     respect_frequency_cap: parseBool(base.respect_frequency_cap, true),
-    ab_test: parseAbTest(base),
+    ab_test: abTest,
+    sample_percent: abTest?.sample_percent ?? null,
+    exclude_delivered_for: base.exclude_delivered_for || null,
     idempotency_key: base.idempotency_key || base.external_id || null,
     created_by: createdBy,
     source,
@@ -190,6 +198,8 @@ export async function createNotification(app, input, options = {}) {
       includeSubscriptionIds: row.include_subscription_ids,
       includeExternalIds: row.include_external_ids,
       channels: row.channels,
+      samplePercent: row.sample_percent,
+      excludeDeliveredFor: row.exclude_delivered_for,
     });
     return { dry_run: true, estimated_recipients: recipients, notification: row };
   }
@@ -301,7 +311,8 @@ export async function sendAbWinner(app, notificationId, { variantId = null, crea
     included_segments: notification.included_segments,
     excluded_segments: notification.excluded_segments,
     filters: notification.filters,
-    // Excluye a quien ya recibió el test para no duplicar el mensaje.
+    // Sin esto, quien ya recibió una variante recibiría el mensaje dos veces.
+    exclude_delivered_for: notificationId,
     name: `${notification.name || 'A/B'} — ganadora ${winnerId}`,
   }, { createdBy, source: 'ab_winner' });
 

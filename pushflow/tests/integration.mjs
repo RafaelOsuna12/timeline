@@ -213,6 +213,53 @@ check('CTR calculado', report2.data.stats.ctr === 1, `ctr: ${report2.data.stats.
 check('conversión contabilizada', report2.data.stats.converted === 1,
   `conversiones: ${report2.data.stats.converted}`);
 
+console.log('\n— Test A/B con muestreo —');
+// Audiencia sintética suficiente para que el muestreo sea observable.
+for (let i = 0; i < 40; i++) {
+  await req('/sdk/v1/subscribe', { method: 'POST', body: {
+    app_id: appId, channel: 'web_push',
+    endpoint: `https://127.0.0.1:${mockPort}/push/ab-${i}`,
+    keys: { p256dh: P256DH, auth: AUTH }, language: 'es', country: 'MX',
+    tags: { plan: 'pro' },
+  } });
+}
+const abTotal = (await req('/api/v1/notifications/estimate', { method: 'POST', key: apiKey,
+  body: { filters: [{ field: 'tag', key: 'plan', relation: '=', value: 'pro' }] } }))
+  .data.estimated_recipients;
+check('audiencia de prueba creada', abTotal >= 40, `total: ${abTotal}`);
+
+const ab = await req('/api/v1/notifications', { method: 'POST', key: apiKey, body: {
+  contents: { es: 'base' },
+  filters: [{ field: 'tag', key: 'plan', relation: '=', value: 'pro' }],
+  ab_test: { sample_percent: 50, variants: [
+    { id: 'A', weight: 50, headings: { es: '🎁 Regalo' }, contents: { es: 'Ábrelo hoy' } },
+    { id: 'B', weight: 50, headings: { es: 'Tienes un regalo' }, contents: { es: 'Caduca hoy' } },
+  ] },
+} });
+check('test A/B creado', ab.status === 201, JSON.stringify(ab.data));
+
+await new Promise((r) => setTimeout(r, 5000));
+const abReport = await req(`/api/v1/notifications/${ab.data.id}`, { key: apiKey });
+const sampled = abReport.data.stats.recipients;
+check('solo la mitad de la audiencia entra en el test',
+  sampled > 0 && sampled < abTotal, `muestreados ${sampled} de ${abTotal}`);
+check('ambas variantes se repartieron', abReport.data.by_variant.length === 2,
+  JSON.stringify(abReport.data.by_variant.map((v) => v.variant)));
+
+check('sample_percent fuera de rango rechazado',
+  (await req('/api/v1/notifications', { method: 'POST', key: apiKey, body: {
+    contents: { es: 'x' }, include_all: true,
+    ab_test: { sample_percent: 150, variants: [{ id: 'A' }, { id: 'B' }] } } })).status === 400);
+
+const winner = await req(`/api/v1/notifications/${ab.data.id}/winner`, { method: 'POST', key: apiKey });
+check('ganadora enviada', Boolean(winner.data.notification_id), JSON.stringify(winner.data));
+
+await new Promise((r) => setTimeout(r, 5000));
+const winnerReport = await req(`/api/v1/notifications/${winner.data.notification_id}`, { key: apiKey });
+check('la ganadora va solo al resto de la audiencia',
+  winnerReport.data.stats.recipients === abTotal - sampled,
+  `ganadora: ${winnerReport.data.stats.recipients}, esperado: ${abTotal - sampled}`);
+
 console.log('\n— Automatizaciones y webhooks —');
 check('automatización creada', (await req('/api/v1/automations', { method: 'POST', key: apiKey,
   body: {
