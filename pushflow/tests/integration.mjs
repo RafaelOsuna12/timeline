@@ -297,6 +297,13 @@ check('app_id inválido devuelve 400, no 500', badId.status === 400,
   `recibido ${badId.status}`);
 check('app_id inexistente devuelve 404',
   (await req('/sdk/v1/config?app_id=00000000-0000-4000-8000-000000000000')).status === 404);
+// Un cuerpo por encima del límite debe dar 413, no un 500 con traza en el log.
+const huge = await fetch(`${BASE}/api/v1/notifications`, {
+  method: 'POST',
+  headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
+  body: 'x'.repeat(3 * 1024 * 1024),
+});
+check('cuerpo demasiado grande devuelve 413', huge.status === 413, `recibido ${huge.status}`);
 check('origen no autorizado rechazado',
   (await req(`/sdk/v1/config?app_id=${appId}`, { origin: 'https://sitio-malicioso.com' })).status === 403);
 const okOrigin = await req(`/sdk/v1/config?app_id=${appId}`, { origin: 'https://prueba.example' });

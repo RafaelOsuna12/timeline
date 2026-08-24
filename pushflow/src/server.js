@@ -75,6 +75,13 @@ export async function buildServer() {
       return reply.code(400).send({
         error: { code: 'invalid_request', message: error.message } });
     }
+    // Errores propios de Fastify que ya traen su estado (413 cuerpo demasiado
+    // grande, 415 tipo no soportado, 405 método no permitido…). Sin esto se
+    // convertían en un 500 y se registraban como fallo del servidor.
+    if (error.statusCode >= 400 && error.statusCode < 500) {
+      return reply.code(error.statusCode).send({
+        error: { code: error.code || 'request_error', message: error.message } });
+    }
     // 22P02 = invalid_text_representation: un uuid o número mal formado en la
     // petición. Es un error del cliente, no del servidor.
     if (error.code === '22P02') {

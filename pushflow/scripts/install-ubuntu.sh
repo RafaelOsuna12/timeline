@@ -319,7 +319,10 @@ cat > /etc/nginx/snippets/pushflow.conf <<SNIPEOF
 # que conoce los orígenes autorizados de cada app. No se añaden aquí: dos
 # cabeceras Access-Control-Allow-Origin distintas hacen que el navegador
 # rechace la petición.
-client_max_body_size 4m;
+#
+# Ninguna directiva se declara a nivel de server: si tu vhost ya tuviera la
+# misma (client_max_body_size, por ejemplo), nginx abortaría con "duplicate".
+# Todo va dentro de las location, que son contextos independientes.
 
 # Cabeceras de proxy comunes a todos los bloques.
 # (nginx no permite factorizarlas fuera sin repetir el include, así que van
@@ -351,6 +354,7 @@ location = /pushflow-sw.js {
 # 3. Endpoints públicos que llegan desde los navegadores: límite por IP.
 location ~ ^/(api/v1/events|api/v1/click|sdk/v1/) {
     limit_req zone=pushflow_public burst=60 nodelay;
+    client_max_body_size 512k;
     proxy_pass http://127.0.0.1:$APP_PORT;
     proxy_set_header Host \$host;
     proxy_set_header X-Real-IP \$remote_addr;
@@ -363,6 +367,7 @@ location / {
     proxy_pass http://127.0.0.1:$APP_PORT;
     proxy_http_version 1.1;
     proxy_read_timeout 300s;
+    client_max_body_size 4m;
     gzip on;
     gzip_types application/javascript application/json text/css text/plain;
     gzip_min_length 512;
