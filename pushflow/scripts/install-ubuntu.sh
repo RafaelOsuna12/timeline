@@ -68,7 +68,8 @@ SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # problema: systemd reiniciará el servicio al final.
 if (ss -lnt 2>/dev/null || netstat -lnt 2>/dev/null) | grep -qE ":$APP_PORT\b"; then
   OWN_PORT=""
-  [[ -f "$INSTALL_DIR/.env" ]] && OWN_PORT="$(grep -m1 '^PORT=' "$INSTALL_DIR/.env" | cut -d= -f2 | tr -d ' ')"
+  [[ -f "$INSTALL_DIR/.env" ]] && \
+    OWN_PORT="$(grep -m1 '^PORT=' "$INSTALL_DIR/.env" | cut -d= -f2 | tr -d ' ' || true)"
   if [[ "$OWN_PORT" == "$APP_PORT" ]]; then
     echo "  El puerto $APP_PORT lo usa la instalación existente de PushFlow: se reutiliza."
   else
@@ -133,8 +134,8 @@ log "Configurando la base de datos"
 # Si ya hay un .env de una instalación anterior, se reutiliza su contraseña:
 # generar una nueva dejaría la base inaccesible para la aplicación.
 if [[ -f "$INSTALL_DIR/.env" ]]; then
-  EXISTING_URL="$(grep -m1 '^DATABASE_URL=' "$INSTALL_DIR/.env" | cut -d= -f2-)"
-  DB_PASSWORD="$(printf '%s' "$EXISTING_URL" | sed -n 's|.*://[^:]*:\([^@]*\)@.*|\1|p')"
+  EXISTING_URL="$(grep -m1 '^DATABASE_URL=' "$INSTALL_DIR/.env" | cut -d= -f2- || true)"
+  DB_PASSWORD="$(printf '%s' "$EXISTING_URL" | sed -n 's|.*://[^:]*:\([^@]*\)@.*|\1|p' || true)"
   [[ -n "$DB_PASSWORD" ]] && info_reuse=true
 fi
 [[ -n "${DB_PASSWORD:-}" ]] || DB_PASSWORD="$(openssl rand -base64 32 | tr -d '/+=' | head -c 32)"
@@ -177,7 +178,7 @@ log "Escribiendo la configuración"
 # Si ya hay un .env, su PORT manda salvo que se pida otro con --port:
 # de lo contrario nginx apuntaría a un puerto donde no escucha nadie.
 if [[ -f "$INSTALL_DIR/.env" ]]; then
-  ENV_PORT="$(grep -m1 '^PORT=' "$INSTALL_DIR/.env" | cut -d= -f2 | tr -d ' ')"
+  ENV_PORT="$(grep -m1 '^PORT=' "$INSTALL_DIR/.env" | cut -d= -f2 | tr -d ' ' || true)"
   if [[ -n "$ENV_PORT" && "$ENV_PORT" != "$APP_PORT" ]]; then
     if [[ "$PORT_EXPLICIT" == true ]]; then
       warn "Cambiando el puerto de $ENV_PORT a $APP_PORT en el .env existente"
@@ -379,8 +380,10 @@ location / {
 SNIPEOF
 
 # ¿Existe ya un vhost con este server_name? Si lo hay, NO se toca.
+# `|| true`: con `set -o pipefail`, un grep sin coincidencias (dominio aún sin
+# vhost, que es el caso de una instalación nueva) abortaría el script aquí.
 EXISTING_VHOST="$(grep -rls "server_name[^;]*\b${DOMAIN}\b" /etc/nginx/ 2>/dev/null \
-                  | grep -v '/snippets/' | head -1)"
+                  | grep -vE '\.bak|\.save|\.orig|~$|/snippets/' | head -1 || true)"
 
 if [[ "$NGINX_MODE" == "auto" ]]; then
   if [[ -n "$EXISTING_VHOST" ]]; then NGINX_MODE="snippet"; else NGINX_MODE="site"; fi
