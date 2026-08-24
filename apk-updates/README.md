@@ -50,9 +50,19 @@ de directorio) y pide el certificado. Con `--existing-tls` no toca el TLS.
 
 ### Publicar una versión
 
+El APK lo compila Android Studio **en tu equipo**, así que primero hay que
+subirlo al servidor:
+
 ```bash
+# En tu equipo
+./gradlew assembleRelease
+scp app/build/outputs/apk/release/app-release.apk admin@TU_IP:/tmp/
+```
+
+```bash
+# En el servidor
 sudo bash server/publish-apk.sh \
-  --apk app-release.apk \
+  --apk /tmp/app-release.apk \
   --version-code 14 --version-name 1.4.0 \
   --app-id miapp \
   --base-url https://updates.tudominio.com/miapp \

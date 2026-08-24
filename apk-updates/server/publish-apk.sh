@@ -59,7 +59,17 @@ warn() { printf '\033[1;33m !\033[0m %s\n' "$*"; }
 die()  { printf '\033[1;31m ✗\033[0m %s\n' "$*" >&2; exit 1; }
 
 [[ -n "$APK" ]] || { usage; die "Falta --apk"; }
-[[ -f "$APK" ]] || die "No existe el fichero: $APK"
+if [[ ! -f "$APK" ]]; then
+  die "No existe el fichero: $APK
+     (estás en $(pwd))
+
+     El APK lo genera Android Studio en TU equipo; hay que subirlo antes:
+
+       ./gradlew assembleRelease
+       scp app/build/outputs/apk/release/app-release.apk $(whoami)@$(hostname -I 2>/dev/null | awk '{print $1}'):/tmp/
+
+     y luego publicar con  --apk /tmp/app-release.apk"
+fi
 
 # Un APK es un ZIP: si no lo es, alguien se equivocó de fichero.
 unzip -l "$APK" >/dev/null 2>&1 || die "$APK no parece un APK válido (no es un ZIP)."
