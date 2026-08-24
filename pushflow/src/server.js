@@ -51,14 +51,6 @@ export async function buildServer() {
   });
   await fastify.register(cookie, { secret: config.security.appSecret });
   await fastify.register(formbody);
-  await fastify.register(rateLimit, {
-    global: false,
-    max: config.security.publicRateLimit,
-    timeWindow: '1 minute',
-    keyGenerator: (request) => request.headers['x-api-key']
-      || request.headers.authorization
-      || request.ip,
-  });
 
   // --- Registro y errores ---------------------------------------------------
   fastify.addHook('onResponse', (request, reply, done) => {
@@ -110,11 +102,16 @@ export async function buildServer() {
 
   // --- API REST (clave de API) ---------------------------------------------
   await fastify.register(async (api) => {
-    api.addHook('preHandler', requireApiKey);
-    api.addHook('onRequest', async (request) => {
-      // Límite por clave de API, más alto que el público.
-      request.routeOptions.config = { rateLimit: { max: config.security.apiRateLimit } };
+    // El plugin se registra dentro del ámbito para que aplique a todas sus rutas:
+    // con `global: false` no se activaría ninguna.
+    await api.register(rateLimit, {
+      max: config.security.apiRateLimit,
+      timeWindow: '1 minute',
+      // Se cuenta por clave de API; si falta, por IP.
+      keyGenerator: (request) =>
+        request.headers['x-api-key'] || request.headers.authorization || request.ip,
     });
+    api.addHook('preHandler', requireApiKey);
     await api.register(notificationRoutes);
     await api.register(subscriptionRoutes);
     await api.register(segmentRoutes);
@@ -124,14 +121,23 @@ export async function buildServer() {
 
   // --- Endpoints públicos del SDK ------------------------------------------
   await fastify.register(async (pub) => {
-    pub.addHook('onRequest', async (request) => {
-      request.routeOptions.config = { rateLimit: { max: config.security.publicRateLimit } };
+    await pub.register(rateLimit, {
+      max: config.security.publicRateLimit,
+      timeWindow: '1 minute',
+      keyGenerator: (request) => request.ip,
     });
     await pub.register(publicRoutes);
   });
 
   // --- Panel ----------------------------------------------------------------
-  await fastify.register(dashboardRoutes);
+  await fastify.register(async (admin) => {
+    await admin.register(rateLimit, {
+      max: 300,
+      timeWindow: '1 minute',
+      keyGenerator: (request) => request.ip,
+    });
+    await admin.register(dashboardRoutes);
+  });
 
   // --- Estáticos ------------------------------------------------------------
   await fastify.register(fastifyStatic, {

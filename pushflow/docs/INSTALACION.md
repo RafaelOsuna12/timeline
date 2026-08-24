@@ -180,6 +180,7 @@ que hacer nada a mano.
 | `UNREGISTERED` en los errores | El usuario desinstaló la app | Normal: la suscripción se marca inválida sola |
 | Las notificaciones tardan | El worker está parado | `systemctl status pushflow-worker` |
 | La cola crece | Un único worker no da abasto | Sube `WORKER_CONCURRENCY` o levanta un segundo worker |
+| «Demasiadas peticiones» al entrar | 10 intentos fallidos en 5 minutos desde tu IP | Espera 5 minutos; el contador vive en memoria y se reinicia con el servicio |
 
 **Ver el estado de la cola** desde el panel (Ajustes → Estado del sistema) o:
 

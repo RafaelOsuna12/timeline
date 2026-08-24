@@ -57,7 +57,10 @@ export default async function dashboardRoutes(fastify) {
   // -------------------------------------------------------------------------
   // Sesión
   // -------------------------------------------------------------------------
-  fastify.post('/admin/api/login', async (request, reply) => {
+  // Límite estricto: protege contra el sondeo de contraseñas.
+  fastify.post('/admin/api/login', {
+    config: { rateLimit: { max: 10, timeWindow: '5 minutes' } },
+  }, async (request, reply) => {
     const { email, password } = request.body || {};
     if (!email || !password) throw badRequest('Email y contraseña son obligatorios');
 

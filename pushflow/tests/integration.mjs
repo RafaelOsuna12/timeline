@@ -246,8 +246,14 @@ check('una app no ve las notificaciones de otra',
 check('panel exige sesión', (await req('/admin/api/apps')).status === 401);
 check('origen no autorizado rechazado',
   (await req(`/sdk/v1/config?app_id=${appId}`, { origin: 'https://sitio-malicioso.com' })).status === 403);
-check('origen autorizado aceptado',
-  (await req(`/sdk/v1/config?app_id=${appId}`, { origin: 'https://prueba.example' })).status === 200);
+const okOrigin = await req(`/sdk/v1/config?app_id=${appId}`, { origin: 'https://prueba.example' });
+check('origen autorizado aceptado', okOrigin.status === 200);
+// El limitador debe estar registrado en cada ámbito: si no, no protege nada.
+check('límite de peticiones activo en el SDK público',
+  okOrigin.headers.get('x-ratelimit-limit') === '120',
+  `cabecera: ${okOrigin.headers.get('x-ratelimit-limit')}`);
+check('límite de peticiones activo en la API',
+  (await req('/api/v1/segments', { key: apiKey })).headers.get('x-ratelimit-limit') === '600');
 
 mockPush.close();
 console.log(`\n${passed} correctas, ${failed} fallidas\n`);

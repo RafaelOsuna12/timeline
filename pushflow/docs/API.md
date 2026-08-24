@@ -24,7 +24,7 @@ Errores:
 | 403 `forbidden` | La clave no tiene ese permiso, u origen no autorizado |
 | 404 `not_found` | El recurso no existe |
 | 409 `conflict` | Operación imposible en el estado actual |
-| 429 `rate_limited` | Se superó el límite de peticiones |
+| 429 `rate_limited` | Se superó el límite de peticiones. La respuesta incluye `x-ratelimit-reset` con los segundos que faltan |
 
 ---
 
@@ -335,6 +335,8 @@ autorizados de la aplicación.
 
 - 600 peticiones/minuto por clave de API (`API_RATE_LIMIT`)
 - 120 peticiones/minuto por IP en los endpoints públicos (`PUBLIC_RATE_LIMIT`)
+- 300 peticiones/minuto por IP en el panel
+- **10 intentos de acceso cada 5 minutos por IP** (protección contra fuerza bruta)
 - Payload de Web Push: ~4 KB una vez cifrado (título + texto + URLs)
 - 3 botones por notificación
 - 200 tags por dispositivo
