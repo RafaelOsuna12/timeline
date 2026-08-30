@@ -75,9 +75,10 @@ export function buildWebPushPayload(notification, subscription, { variant, deliv
 
   if (deliveryId) payload.dl = String(deliveryId);
   if (variant) payload.vr = variant;
-  if (n.icon_url) payload.ic = n.icon_url;
+  // Sin icono propio, la notificación saldría con el genérico del navegador.
+  payload.ic = n.icon_url || `${config.server.publicUrl}${config.brand.defaultIcon}`;
+  payload.bd = n.badge_url || `${config.server.publicUrl}${config.brand.defaultBadge}`;
   if (n.image_url) payload.im = n.image_url;
-  if (n.badge_url) payload.bd = n.badge_url;
 
   const url = targetUrl(n, 'web_push');
   if (url) payload.u = interpolate(url, subscription);
@@ -123,7 +124,7 @@ export function buildFcmMessage(notification, subscription, { variant, deliveryI
   };
   if (deliveryId) data.pf_delivery = String(deliveryId);
   if (variant) data.pf_variant = String(variant);
-  if (n.icon_url) data.pf_icon = n.icon_url;
+  data.pf_icon = n.icon_url || `${config.server.publicUrl}${config.brand.defaultIcon}`;
   if (n.image_url) data.pf_image = n.image_url;
   if (n.large_icon) data.pf_large_icon = n.large_icon;
   if (url) data.pf_url = interpolate(url, subscription);

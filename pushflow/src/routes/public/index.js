@@ -69,7 +69,8 @@ export default async function publicRoutes(fastify) {
       name: app.name,
       vapid_public_key: app.vapid_public,
       api_url: config.server.publicUrl,
-      default_icon: app.default_icon_url,
+      default_icon: app.default_icon_url
+        || `${config.server.publicUrl}${config.brand.defaultIcon}`,
       safari_web_id: app.safari_web_id || null,
       prompt: settings.prompt || {
         type: 'slide',                       // slide | native | bell | manual

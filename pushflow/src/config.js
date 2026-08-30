@@ -61,6 +61,12 @@ export const config = {
     inline: bool(process.env.WORKER_INLINE, false), // ejecuta el worker dentro del servidor
   },
 
+  // Iconos por defecto del sistema: se usan cuando la app no define los suyos.
+  brand: {
+    defaultIcon: process.env.DEFAULT_ICON_PATH || '/brand/icon-192.png',
+    defaultBadge: process.env.DEFAULT_BADGE_PATH || '/brand/badge-96.png',
+  },
+
   push: {
     vapidSubject: process.env.VAPID_SUBJECT || 'mailto:admin@example.com',
     fcmEndpoint: 'https://fcm.googleapis.com/v1/projects',

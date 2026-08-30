@@ -76,10 +76,18 @@ test('el payload web incluye emojis, imagen y botones con claves compactas', () 
   assert.equal(out.t, '🔥 Oferta');
   assert.equal(out.b, 'Hoy 50% 🎉');
   assert.equal(out.im, 'https://x/i.jpg');
+  assert.equal(out.ic, 'https://x/ic.png');
   assert.equal(out.ap, 'a1');
   assert.equal(out.dl, '9');
   assert.deepEqual(out.a, [{ i: 'ver', t: 'Ver', u: 'https://x/ver' }]);
   assert.deepEqual(out.d, { pedido: 42 });
+});
+
+test('sin icono propio se usa el de marca, nunca el genérico del navegador', () => {
+  const out = payload.buildWebPushPayload(
+    { id: 'n1', app_id: 'a1', headings: {}, contents: { es: 'x' } }, { language: 'es' });
+  assert.match(out.ic, /\/brand\/icon-192\.png$/);
+  assert.match(out.bd, /\/brand\/badge-96\.png$/);
 });
 
 test('el mensaje FCM es data-only y convierte todo a texto', () => {
