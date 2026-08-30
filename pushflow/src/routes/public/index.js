@@ -7,6 +7,7 @@
 import { one, many, query } from '../../db/index.js';
 import { badRequest, forbidden, notFound } from '../../lib/errors.js';
 import { isUuid } from '../../lib/validate.js';
+import { absolutizar } from '../../lib/urls.js';
 import { loadApp } from '../../plugins/auth.js';
 import { upsertSubscription, updateSubscription, unsubscribe, trackSession }
   from '../../services/subscriptions.js';
@@ -69,7 +70,7 @@ export default async function publicRoutes(fastify) {
       name: app.name,
       vapid_public_key: app.vapid_public,
       api_url: config.server.publicUrl,
-      default_icon: app.default_icon_url
+      default_icon: absolutizar(app.default_icon_url)
         || `${config.server.publicUrl}${config.brand.defaultIcon}`,
       safari_web_id: app.safari_web_id || null,
       prompt: settings.prompt || {

@@ -11,6 +11,7 @@ import {
   localized, optionalUrl, parseWhen, uuidArray, clampInt, parseBool,
 } from '../lib/validate.js';
 import { countAudience } from './audience.js';
+import { absolutizar } from '../lib/urls.js';
 import { enqueue, cancelByUniqueKey } from './queue.js';
 import logger from '../lib/logger.js';
 
@@ -141,7 +142,9 @@ export async function buildNotification(app, input, { createdBy = null, source =
     web_url: optionalUrl(base.web_url, 'web_url'),
     app_url: base.app_url || base.deep_link || null,     // admite esquemas propios (miapp://)
     launch_activity: base.launch_activity || null,
-    icon_url: optionalUrl(base.icon_url || base.chrome_web_icon || app.default_icon_url, 'icon_url'),
+    // El icono de la app puede estar guardado como ruta relativa.
+    icon_url: optionalUrl(
+      base.icon_url || base.chrome_web_icon || absolutizar(app.default_icon_url), 'icon_url'),
     image_url: optionalUrl(base.image_url || base.big_picture || base.chrome_web_image || base.imagen, 'image_url'),
     badge_url: optionalUrl(base.badge_url || base.chrome_web_badge, 'badge_url'),
     large_icon: optionalUrl(base.large_icon, 'large_icon'),

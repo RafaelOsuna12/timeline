@@ -10,6 +10,7 @@ import { resolve, basename } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import config from '../config.js';
 import { decodificarDataUrl, validarIcono, FORMATOS } from '../lib/images.js';
+import { absolutizar } from '../lib/urls.js';
 import logger from '../lib/logger.js';
 
 export const UPLOAD_DIR = resolve(config.rootDir, 'data', 'uploads');
@@ -34,11 +35,10 @@ export async function guardarIcono(appId, dataUrl) {
   logger.info('icono subido', {
     appId, nombre, bytes: buf.length, dimensiones: `${info.width}x${info.height}` });
 
-  return {
-    ...info,
-    bytes: buf.length,
-    url: `${config.server.publicUrl}${UPLOAD_PREFIX}/${appId}/${nombre}`,
-  };
+  // Se guarda la RUTA relativa, no la URL completa: si algún día cambia
+  // PUBLIC_URL, los iconos ya subidos seguirían apuntando al dominio viejo.
+  const ruta = `${UPLOAD_PREFIX}/${appId}/${nombre}`;
+  return { ...info, bytes: buf.length, ruta, url: absolutizar(ruta) };
 }
 
 /**
@@ -48,12 +48,17 @@ export async function guardarIcono(appId, dataUrl) {
 export async function borrarIcono(appId, url) {
   if (!url) return { borrado: false, motivo: 'sin_icono' };
 
-  const esperado = `${config.server.publicUrl}${UPLOAD_PREFIX}/${appId}/`;
-  if (!url.startsWith(esperado)) {
-    return { borrado: false, motivo: 'externo' };   // era una URL ajena
-  }
+  // Se admiten la ruta relativa actual y las URL absolutas de versiones
+  // anteriores, para poder borrar también los iconos ya subidos.
+  const prefijoRelativo = `${UPLOAD_PREFIX}/${appId}/`;
+  const prefijoAbsoluto = `${config.server.publicUrl}${prefijoRelativo}`;
+  let resto;
+  if (url.startsWith(prefijoRelativo)) resto = url.slice(prefijoRelativo.length);
+  else if (url.startsWith(prefijoAbsoluto)) resto = url.slice(prefijoAbsoluto.length);
+  else return { borrado: false, motivo: 'externo' };   // era una URL ajena
+
   // basename descarta cualquier intento de recorrido de directorios.
-  const nombre = basename(url.slice(esperado.length));
+  const nombre = basename(resto);
   if (!/^icon-[a-z0-9-]+\.(png|jpg|webp)$/i.test(nombre)) {
     return { borrado: false, motivo: 'nombre_invalido' };
   }

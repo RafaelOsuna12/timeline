@@ -22,6 +22,7 @@ import { countAudience, countSegment, buildFilterSql } from '../../services/audi
 import { isValidCron } from '../../lib/cron.js';
 import { stats as queueStats } from '../../services/queue.js';
 import { guardarIcono, borrarIcono, limpiarAntiguos } from '../../services/uploads.js';
+import { absolutizar } from '../../lib/urls.js';
 import logger from '../../lib/logger.js';
 
 const SESSION_COOKIE = 'pf_session';
@@ -206,6 +207,7 @@ export default async function dashboardRoutes(fastify) {
 
   fastify.get('/admin/api/apps/:appId', appScope, async (request) => {
     const app = { ...request.pushApp };
+    app.default_icon_url = absolutizar(app.default_icon_url);
     delete app.vapid_private;
     app.fcm_configured = Boolean(app.fcm_private_key);
     delete app.fcm_private_key;
@@ -285,7 +287,7 @@ export default async function dashboardRoutes(fastify) {
     const icono = await guardarIcono(request.pushApp.id, request.body?.data);
 
     await query('UPDATE apps SET default_icon_url = $2, updated_at = now() WHERE id = $1',
-      [request.pushApp.id, icono.url]);
+      [request.pushApp.id, icono.ruta]);
     invalidateAppCache(request.pushApp.id);
 
     // El icono anterior, si lo alojábamos nosotros, ya no sirve a nadie.

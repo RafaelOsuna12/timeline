@@ -158,6 +158,14 @@ test('parseWhen entiende fechas ISO y expresiones relativas', () => {
   assert.equal(validate.parseWhen('2026-09-01T10:00:00Z').toISOString(), '2026-09-01T10:00:00.000Z');
 });
 
+test('las rutas internas se resuelven contra el dominio público', async () => {
+  const { absolutizar } = await import('../src/lib/urls.js');
+  assert.match(absolutizar('/uploads/app/icon.png'), /^https?:\/\/.+\/uploads\/app\/icon\.png$/);
+  // Una URL externa no se toca: el icono puede vivir en otro servidor.
+  assert.equal(absolutizar('https://cdn.ajeno.com/i.png'), 'https://cdn.ajeno.com/i.png');
+  assert.equal(absolutizar(null), null);
+});
+
 test('las contraseñas usan scrypt con sal aleatoria', () => {
   const hash = crypto.hashPassword('secreta-larga');
   assert.notEqual(hash, crypto.hashPassword('secreta-larga'));

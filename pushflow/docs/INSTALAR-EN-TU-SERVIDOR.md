@@ -232,10 +232,21 @@ sudo crontab -e
 
 # Actualizar a una versión nueva
 cd ~/pushflow-src && git pull
-sudo cp -r pushflow/src pushflow/public pushflow/migrations /opt/pushflow/
-cd /opt/pushflow && sudo -u pushflow npm ci --omit=dev
-sudo -u pushflow node src/db/migrate.js up
-sudo systemctl restart pushflow pushflow-worker
+sudo bash pushflow/scripts/update.sh
+```
+
+`update.sh` hace copia de seguridad del código, sincroniza `src`, `public`,
+`migrations` y `scripts` (borrando los ficheros que ya no existan), reasigna
+el propietario al usuario del servicio, reinstala dependencias **solo si
+cambió `package.json`**, aplica migraciones, reinicia y comprueba que
+`/health` responde. Si no levanta, **restaura la versión anterior**.
+
+Nunca toca `.env` ni `data/`, así que los iconos subidos y las exportaciones
+sobreviven a la actualización.
+
+```bash
+sudo bash pushflow/scripts/update.sh --no-restart   # copiar sin reiniciar
+sudo bash pushflow/scripts/update.sh --dir /otra/ruta
 ```
 
 Las particiones mensuales de eventos y la purga por retención las gestiona el
