@@ -154,6 +154,19 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .btn-danger { background: var(--critical); }
 .btn-sm { padding: 5px 10px; font-size: 12.5px; }
 
+/* --- Selector de icono --------------------------------------------------- */
+.icon-row { display: flex; gap: 14px; align-items: flex-start; }
+.icon-preview {
+  width: 72px; height: 72px; flex: none; border-radius: 14px;
+  border: 1px solid var(--border); background: var(--surface-2);
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.icon-preview img { width: 100%; height: 100%; object-fit: contain; }
+/* Sin icono propio se muestra el del sistema, atenuado para que se note
+   que es un valor heredado y no una imagen de la app. */
+.icon-preview.por-defecto img { opacity: .4; }
+.icon-preview.vacio::after { content: "🔔"; font-size: 26px; }
+
 /* --- Tablas -------------------------------------------------------------- */
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }

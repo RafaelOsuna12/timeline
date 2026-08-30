@@ -21,6 +21,7 @@ import {
 import { countAudience, countSegment, buildFilterSql } from '../../services/audience.js';
 import { isValidCron } from '../../lib/cron.js';
 import { stats as queueStats } from '../../services/queue.js';
+import { guardarIcono, borrarIcono, limpiarAntiguos } from '../../services/uploads.js';
 import logger from '../../lib/logger.js';
 
 const SESSION_COOKIE = 'pf_session';
@@ -272,6 +273,56 @@ export default async function dashboardRoutes(fastify) {
     clearTokenCache(request.pushApp.id);
     invalidateAppCache(request.pushApp.id);
     return { ok: true, project_id: projectId };
+  });
+
+  /**
+   * POST /apps/:appId/icon — sube el icono por defecto de la app.
+   * La imagen llega como data URL en base64: evita una dependencia de
+   * multipart para un fichero que nunca pasa de 1 MB.
+   */
+  fastify.post('/admin/api/apps/:appId/icon', editor, async (request) => {
+    const anterior = request.pushApp.default_icon_url;
+    const icono = await guardarIcono(request.pushApp.id, request.body?.data);
+
+    await query('UPDATE apps SET default_icon_url = $2, updated_at = now() WHERE id = $1',
+      [request.pushApp.id, icono.url]);
+    invalidateAppCache(request.pushApp.id);
+
+    // El icono anterior, si lo alojábamos nosotros, ya no sirve a nadie.
+    await borrarIcono(request.pushApp.id, anterior).catch(() => {});
+
+    return {
+      url: icono.url,
+      width: icono.width,
+      height: icono.height,
+      format: icono.format,
+      bytes: icono.bytes,
+      // Aviso, no error: los sistemas recortan en cuadrado o círculo.
+      warning: icono.cuadrada ? null
+        : `La imagen no es cuadrada (${icono.width}×${icono.height}); al mostrarse se recortará.`,
+    };
+  });
+
+  /**
+   * DELETE /apps/:appId/icon — quita el icono de la app.
+   * Hace falta una ruta propia: el PATCH usa COALESCE, así que enviar null
+   * conservaría el valor anterior en vez de borrarlo.
+   */
+  fastify.delete('/admin/api/apps/:appId/icon', editor, async (request) => {
+    const anterior = request.pushApp.default_icon_url;
+    await query('UPDATE apps SET default_icon_url = NULL, updated_at = now() WHERE id = $1',
+      [request.pushApp.id]);
+    invalidateAppCache(request.pushApp.id);
+
+    const resultado = await borrarIcono(request.pushApp.id, anterior).catch(() => ({ borrado: false }));
+    await limpiarAntiguos(request.pushApp.id, null).catch(() => {});
+
+    return {
+      eliminado: true,
+      fichero_borrado: resultado.borrado,
+      // A partir de ahora las notificaciones usan el icono del sistema.
+      icono_por_defecto: `${config.server.publicUrl}${config.brand.defaultIcon}`,
+    };
   });
 
   // -------------------------------------------------------------------------

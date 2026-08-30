@@ -56,3 +56,21 @@ DEFAULT_BADGE_PATH=/brand/badge-96.png
 
 Cada app puede además fijar el suyo en **Ajustes → Icono por defecto**, que
 tiene prioridad sobre estos.
+
+## Icono propio de una app
+
+Desde **Ajustes → Icono por defecto** se puede subir una imagen o pegar una URL:
+
+- **Subir imagen** acepta PNG, JPEG y WebP hasta 1 MB, entre 64×64 y 2048×2048.
+  Se recomienda cuadrada y de 192×192 como mínimo. Si no es cuadrada se acepta,
+  pero avisa: los sistemas recortan el icono.
+- **Eliminar** quita el icono y borra el fichero del servidor; las
+  notificaciones vuelven a usar el del sistema.
+
+El formato se comprueba leyendo los bytes de la cabecera, no la extensión ni el
+`content-type`: renombrar un fichero no basta para colarlo. SVG queda fuera a
+propósito — un SVG puede llevar scripts y se serviría desde el dominio del
+panel.
+
+Los ficheros se guardan en `data/uploads/<app-id>/` con un nombre generado
+(nunca el del cliente) y se sirven con `X-Content-Type-Options: nosniff`.

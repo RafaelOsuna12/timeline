@@ -213,9 +213,66 @@ check('CTR calculado', report2.data.stats.ctr === 1, `ctr: ${report2.data.stats.
 check('conversión contabilizada', report2.data.stats.converted === 1,
   `conversiones: ${report2.data.stats.converted}`);
 
+console.log('\n— Icono de la app: subida y borrado —');
+// PNG mínimo válido de 192x192 generado al vuelo (cabecera IHDR correcta).
+function pngFalso(ancho, alto) {
+  const crc = (buf) => {
+    let c = ~0;
+    for (const b of buf) {
+      c ^= b;
+      for (let i = 0; i < 8; i++) c = (c >>> 1) ^ (0xEDB88320 & -(c & 1));
+    }
+    return ~c >>> 0;
+  };
+  const trozo = (tipo, datos) => {
+    const cuerpo = Buffer.concat([Buffer.from(tipo, 'latin1'), datos]);
+    const len = Buffer.alloc(4); len.writeUInt32BE(datos.length);
+    const suma = Buffer.alloc(4); suma.writeUInt32BE(crc(cuerpo));
+    return Buffer.concat([len, cuerpo, suma]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(ancho, 0); ihdr.writeUInt32BE(alto, 4);
+  ihdr[8] = 8; ihdr[9] = 6;
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    trozo('IHDR', ihdr), trozo('IEND', Buffer.alloc(0)),
+  ]);
+}
+const comoDataUrl = (buf) => `data:image/png;base64,${buf.toString('base64')}`;
+
+const subida = await req(`/admin/api/apps/${appId}/icon`, { method: 'POST', cookie,
+  body: { data: comoDataUrl(pngFalso(256, 256)) } });
+check('icono subido', subida.status === 200 && subida.data.url?.includes('/uploads/'),
+  JSON.stringify(subida.data).slice(0, 120));
+check('dimensiones leídas del PNG', subida.data.width === 256 && subida.data.height === 256);
+check('el icono se sirve por HTTP',
+  (await fetch(subida.data.url)).status === 200);
+check('la app quedó con ese icono',
+  (await req(`/sdk/v1/config?app_id=${appId}`)).data.default_icon === subida.data.url);
+
+check('una imagen demasiado pequeña se rechaza',
+  (await req(`/admin/api/apps/${appId}/icon`, { method: 'POST', cookie,
+    body: { data: comoDataUrl(pngFalso(32, 32)) } })).status === 400);
+check('un fichero que no es imagen se rechaza',
+  (await req(`/admin/api/apps/${appId}/icon`, { method: 'POST', cookie,
+    body: { data: 'data:image/png;base64,' + Buffer.from('<svg/>').toString('base64') } })).status === 400);
+
+const noCuadrada = await req(`/admin/api/apps/${appId}/icon`, { method: 'POST', cookie,
+  body: { data: comoDataUrl(pngFalso(300, 200)) } });
+check('una imagen no cuadrada se acepta con aviso',
+  noCuadrada.status === 200 && Boolean(noCuadrada.data.warning), JSON.stringify(noCuadrada.data.warning));
+
+const borrado = await req(`/admin/api/apps/${appId}/icon`, { method: 'DELETE', cookie });
+check('icono eliminado', borrado.data.eliminado === true && borrado.data.fichero_borrado === true);
+check('vuelve al icono del sistema',
+  (await req(`/sdk/v1/config?app_id=${appId}`)).data.default_icon.includes('/brand/icon-192.png'));
+const tras = await fetch(subida.data.url);
+check('el fichero ya no se sirve', tras.status === 404, `recibido ${tras.status}`);
+
 console.log('\n— Test A/B con muestreo —');
-// Audiencia sintética suficiente para que el muestreo sea observable.
-for (let i = 0; i < 40; i++) {
+// Audiencia sintética suficiente para observar el muestreo sin acercarse al
+// límite público de 120 peticiones por minuto y por IP.
+for (let i = 0; i < 24; i++) {
   await req('/sdk/v1/subscribe', { method: 'POST', body: {
     app_id: appId, channel: 'web_push',
     endpoint: `https://127.0.0.1:${mockPort}/push/ab-${i}`,
@@ -226,7 +283,7 @@ for (let i = 0; i < 40; i++) {
 const abTotal = (await req('/api/v1/notifications/estimate', { method: 'POST', key: apiKey,
   body: { filters: [{ field: 'tag', key: 'plan', relation: '=', value: 'pro' }] } }))
   .data.estimated_recipients;
-check('audiencia de prueba creada', abTotal >= 40, `total: ${abTotal}`);
+check('audiencia de prueba creada', abTotal >= 24, `total: ${abTotal}`);
 
 const ab = await req('/api/v1/notifications', { method: 'POST', key: apiKey, body: {
   contents: { es: 'base' },

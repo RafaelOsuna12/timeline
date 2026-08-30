@@ -1249,8 +1249,29 @@ VIEWS.settings = async (main) => {
           <div class="field"><label for="s-origins">Orígenes autorizados (uno por línea)</label>
             <textarea id="s-origins">${esc((app.allowed_origins || []).join('\n'))}</textarea>
             <div class="hint">Solo estos dominios podrán registrar suscriptores. Admite <code>*.midominio.com</code>.</div></div>
-          <div class="field"><label for="s-icon">Icono por defecto</label>
-            <input id="s-icon" type="url" value="${esc(app.default_icon_url || '')}"></div>
+          <div class="field">
+            <label>Icono por defecto</label>
+            <div class="icon-row">
+              <div class="icon-preview${app.default_icon_url ? '' : ' por-defecto'}" id="icon-preview">
+                <img id="icon-img" src="${esc(app.default_icon_url || '/brand/icon-192.png')}"
+                     alt="Icono actual"
+                     onerror="this.style.display='none';this.parentNode.classList.add('vacio')">
+              </div>
+              <div style="flex:1;min-width:0">
+                <div class="flex wrap mb">
+                  <button type="button" class="btn-ghost btn-sm" id="pick-icon">Subir imagen</button>
+                  <button type="button" class="btn-ghost btn-sm" id="del-icon"
+                    ${app.default_icon_url ? '' : 'disabled'}>Eliminar</button>
+                  <input type="file" id="icon-file" accept="image/png,image/jpeg,image/webp" hidden>
+                </div>
+                <input id="s-icon" type="url" placeholder="…o pega la URL de una imagen"
+                       value="${esc(app.default_icon_url || '')}">
+                <div class="hint" id="icon-hint">${app.default_icon_url
+                  ? 'Se usa en todas las notificaciones de esta app.'
+                  : 'Sin icono propio: se usa el del sistema. PNG, JPEG o WebP, cuadrado, mínimo 192×192 px.'}</div>
+              </div>
+            </div>
+          </div>
           <button id="save-app">Guardar</button>
         </div>
 
@@ -1363,6 +1384,72 @@ VIEWS.settings = async (main) => {
       await loadApps();
       render();
     } catch (err) { toast(err.message, true); }
+  });
+
+  // --- Icono: subir, eliminar y vista previa -------------------------------
+  const iconImg = main.querySelector('#icon-img');
+  const iconPreview = main.querySelector('#icon-preview');
+  const iconHint = main.querySelector('#icon-hint');
+  const delIcon = main.querySelector('#del-icon');
+
+  const pintarIcono = (url, pista) => {
+    main.querySelector('#s-icon').value = url || '';
+    iconImg.style.display = '';
+    iconPreview.classList.remove('vacio');
+    iconPreview.classList.toggle('por-defecto', !url);
+    // El parámetro evita que el navegador siga mostrando el icono cacheado.
+    iconImg.src = (url || '/brand/icon-192.png') + '?v=' + Date.now();
+    delIcon.disabled = !url;
+    if (pista) iconHint.textContent = pista;
+  };
+
+  main.querySelector('#pick-icon').addEventListener('click',
+    () => main.querySelector('#icon-file').click());
+
+  main.querySelector('#icon-file').addEventListener('change', async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > 1024 * 1024) {
+      toast('La imagen supera 1 MB', true);
+      event.target.value = '';
+      return;
+    }
+    iconHint.textContent = 'Subiendo…';
+    try {
+      const data = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('No se pudo leer el fichero'));
+        reader.readAsDataURL(file);
+      });
+      const result = await api(`/apps/${state.app.id}/icon`, { method: 'POST', body: { data } });
+      pintarIcono(result.url,
+        `${result.width}×${result.height} · ${Math.round(result.bytes / 1024)} KB`);
+      if (result.warning) toast(result.warning, true);
+      else toast('Icono actualizado');
+      await loadApps();
+    } catch (err) {
+      toast(err.message, true);
+      iconHint.textContent = 'PNG, JPEG o WebP, cuadrado, mínimo 192×192 px.';
+    } finally {
+      event.target.value = '';
+    }
+  });
+
+  delIcon.addEventListener('click', async () => {
+    if (!confirm('¿Eliminar el icono? Las notificaciones pasarán a usar el del sistema.')) return;
+    try {
+      await api(`/apps/${state.app.id}/icon`, { method: 'DELETE' });
+      pintarIcono(null, 'Sin icono propio: se usa el del sistema.');
+      toast('Icono eliminado');
+      await loadApps();
+    } catch (err) { toast(err.message, true); }
+  });
+
+  // Escribir una URL a mano también refresca la vista previa.
+  main.querySelector('#s-icon').addEventListener('change', (event) => {
+    const url = event.target.value.trim();
+    if (url) pintarIcono(url, 'Se guardará al pulsar «Guardar».');
   });
 
   main.querySelector('#save-prompt').addEventListener('click', () => saveSettings({ prompt: {

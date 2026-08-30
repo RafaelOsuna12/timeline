@@ -336,6 +336,35 @@ Eventos: `notification.sent`, `notification.completed`, `notification.clicked`,
 
 ---
 
+## Icono de la aplicación (panel)
+
+Estos dos endpoints usan la sesión del panel, no la clave de API.
+
+### `POST /admin/api/apps/:appId/icon`
+
+```json
+{ "data": "data:image/png;base64,iVBORw0KGgo..." }
+```
+
+Sube el icono por defecto de la app. Admite PNG, JPEG y WebP hasta 1 MB, con
+lados entre 64 y 2048 px. El formato se valida por los bytes de la cabecera.
+
+```json
+{ "url": "https://…/uploads/<app-id>/icon-xxxx.png",
+  "width": 256, "height": 256, "format": "png", "bytes": 13241,
+  "warning": null }
+```
+
+`warning` avisa si la imagen no es cuadrada; no impide guardarla.
+
+### `DELETE /admin/api/apps/:appId/icon`
+
+Quita el icono y borra el fichero. Las notificaciones vuelven al icono del
+sistema. Hace falta esta ruta porque el `PATCH` de la app usa `COALESCE`:
+enviar `default_icon_url: null` conservaría el valor anterior.
+
+---
+
 ## Endpoints públicos (sin clave de API)
 
 Los usan los SDK. Se identifican con `app_id` y se validan contra los orígenes

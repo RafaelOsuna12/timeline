@@ -8,7 +8,7 @@
  *   /              interfaz del panel y ficheros estáticos
  */
 import { resolve } from 'node:path';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdirSync } from 'node:fs';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
@@ -95,11 +95,23 @@ export async function buildServer() {
       error: { code: 'internal_error', message: 'Error interno del servidor', request_id: request.id } });
   });
 
+  // Rutas que sirven ficheros, nunca la interfaz: un recurso que falta debe
+  // dar 404, no la página del panel con código 200 (rompe cachés y clientes).
+  const RUTAS_DE_FICHERO = ['/api/', '/admin/api/', '/uploads/', '/sdk/', '/brand/', '/dashboard/'];
+
   fastify.setNotFoundHandler((request, reply) => {
-    if (request.url.startsWith('/api/') || request.url.startsWith('/admin/api/')) {
+    const url = request.url.split('?')[0];
+    const esApi = url.startsWith('/api/') || url.startsWith('/admin/api/');
+    const esFichero = RUTAS_DE_FICHERO.some((p) => url.startsWith(p))
+      || /\.[a-z0-9]{2,5}$/i.test(url);        // cualquier ruta con extensión
+
+    if (esApi) {
       return reply.code(404).send({ error: { code: 'not_found', message: 'Endpoint no encontrado' } });
     }
-    // El panel es una SPA: cualquier otra ruta devuelve el index.
+    if (esFichero) {
+      return reply.code(404).send({ error: { code: 'not_found', message: 'Recurso no encontrado' } });
+    }
+    // El panel es una SPA: el resto de rutas devuelven el index.
     return reply.type('text/html').send(readFileSync(resolve(PUBLIC_DIR, 'dashboard/index.html')));
   });
 
@@ -164,6 +176,24 @@ export async function buildServer() {
       // El service worker no debe cachearse de forma agresiva.
       if (path.endsWith('pushflow-sw.js')) res.setHeader('cache-control', 'no-cache');
       if (path.includes('/sdk/')) res.setHeader('cache-control', 'public, max-age=3600');
+    },
+  });
+
+  // Iconos subidos desde el panel. Se sirven con nosniff y sin listar el
+  // directorio: son ficheros de usuario, no contenido de la aplicación.
+  const { UPLOAD_DIR, UPLOAD_PREFIX } = await import('./services/uploads.js');
+  mkdirSync(UPLOAD_DIR, { recursive: true });
+  await fastify.register(fastifyStatic, {
+    root: UPLOAD_DIR,
+    prefix: `${UPLOAD_PREFIX}/`,
+    decorateReply: false,          // el plugin ya decoró reply más arriba
+    index: false,
+    list: false,
+    cacheControl: true,
+    maxAge: '7d',
+    setHeaders: (res) => {
+      res.setHeader('x-content-type-options', 'nosniff');
+      res.setHeader('content-security-policy', "default-src 'none'; img-src 'self'");
     },
   });
 
