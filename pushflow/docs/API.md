@@ -336,9 +336,11 @@ Eventos: `notification.sent`, `notification.completed`, `notification.clicked`,
 
 ---
 
-## Icono de la aplicación (panel)
+## Imágenes (panel)
 
-Estos dos endpoints usan la sesión del panel, no la clave de API.
+Estos endpoints usan la sesión del panel, no la clave de API. Las imágenes
+llegan como data URL en base64: así no hace falta una dependencia de multipart
+para ficheros que nunca pasan de 2 MB.
 
 ### `POST /admin/api/apps/:appId/icon`
 
@@ -355,13 +357,42 @@ lados entre 64 y 2048 px. El formato se valida por los bytes de la cabecera.
   "warning": null }
 ```
 
-`warning` avisa si la imagen no es cuadrada; no impide guardarla.
+`warning` avisa si la imagen no es cuadrada o si es tan pequeña que se verá
+borrosa; no impide guardarla.
 
 ### `DELETE /admin/api/apps/:appId/icon`
 
 Quita el icono y borra el fichero. Las notificaciones vuelven al icono del
 sistema. Hace falta esta ruta porque el `PATCH` de la app usa `COALESCE`:
 enviar `default_icon_url: null` conservaría el valor anterior.
+
+### `POST /admin/api/apps/:appId/media`
+
+```json
+{ "data": "data:image/png;base64,iVBORw0KGgo...", "kind": "banner" }
+```
+
+Sube una imagen para una notificación concreta. A diferencia de `/icon`, **no
+modifica el registro de la app**: solo devuelve la URL, que el redactor coloca
+en `image_url` o en `icon_url`. Los ficheros se guardan con prefijo `media-`,
+así que la limpieza del icono por defecto nunca se los lleva por delante.
+
+`kind` elige el perfil de validación:
+
+| `kind` | Recomendado | Proporción | Lados | Máximo |
+|---|---|---|---|---|
+| `banner` | 1440 × 720 px | 2:1 | 200–4096 px | 2 MB |
+| `icon` | 192 × 192 px | 1:1 | 64–2048 px | 1 MB |
+
+```json
+{ "url": "https://…/uploads/<app-id>/media-xxxx.png",
+  "width": 1440, "height": 720, "format": "png", "bytes": 84210,
+  "warning": null }
+```
+
+Salirse de la proporción recomendada **no** es un error: la respuesta trae un
+`warning` explicando que el sistema recortará la imagen. Quedarse por debajo
+del lado mínimo sí devuelve `400`.
 
 ---
 

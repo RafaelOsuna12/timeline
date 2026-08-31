@@ -104,21 +104,68 @@ export function decodificarDataUrl(dataUrl, maxBytes) {
   return buf;
 }
 
-/** Comprobaciones propias de un icono de notificación. */
-export function validarIcono(buf, { min = 64, max = 2048 } = {}) {
+/**
+ * Perfiles de imagen del sistema. Los tamaños recomendados salen de lo que
+ * muestran Chrome y Android: el icono se recorta en cuadrado o círculo, y la
+ * imagen grande se muestra apaisada en proporción 2:1.
+ */
+export const PERFILES = {
+  icon: {
+    etiqueta: 'imagen del icono',
+    min: 64, max: 2048,
+    maxBytes: 1024 * 1024,
+    recomendado: { ancho: 192, alto: 192 },
+    proporcion: 1,             // cuadrado
+    tolerancia: 0.05,
+  },
+  banner: {
+    etiqueta: 'imagen grande',
+    min: 200, max: 4096,
+    maxBytes: 2 * 1024 * 1024,
+    recomendado: { ancho: 1440, alto: 720 },
+    proporcion: 2,             // apaisada 2:1
+    tolerancia: 0.35,
+  },
+};
+
+/**
+ * Valida una imagen contra un perfil. Devuelve la información y, cuando
+ * procede, un `aviso`: la proporción no es motivo de rechazo, solo advierte
+ * de que el sistema recortará la imagen al mostrarla.
+ */
+export function validarImagen(buf, perfil = PERFILES.icon) {
   const info = inspeccionar(buf);
-  if (info.width < min || info.height < min) {
+
+  if (info.width < perfil.min || info.height < perfil.min) {
     throw badRequest(
-      `El icono es demasiado pequeño (${info.width}×${info.height}). Mínimo ${min}×${min} px.`);
+      `La ${perfil.etiqueta} es demasiado pequeña (${info.width}×${info.height}). `
+      + `Mínimo ${perfil.min}×${perfil.min} px.`);
   }
-  if (info.width > max || info.height > max) {
-    throw badRequest(`El icono es demasiado grande (${info.width}×${info.height}). Máximo ${max}×${max} px.`);
+  if (info.width > perfil.max || info.height > perfil.max) {
+    throw badRequest(
+      `La ${perfil.etiqueta} es demasiado grande (${info.width}×${info.height}). `
+      + `Máximo ${perfil.max}×${perfil.max} px.`);
   }
-  // No es motivo de rechazo, pero el panel lo advierte: los sistemas recortan
-  // los iconos en cuadrado o círculo y una imagen alargada se ve mal.
+
   const proporcion = info.width / info.height;
-  info.cuadrada = proporcion > 0.95 && proporcion < 1.05;
+  const desvio = Math.abs(proporcion - perfil.proporcion) / perfil.proporcion;
+  info.proporcionOk = desvio <= perfil.tolerancia;
+  info.aviso = info.proporcionOk ? null
+    : `La imagen es ${info.width}×${info.height}; se recomienda `
+      + `${perfil.recomendado.ancho}×${perfil.recomendado.alto} px. `
+      + 'Al mostrarse se recortará.';
+
+  // Aviso adicional si es mucho más pequeña que lo recomendado: se verá borrosa.
+  if (!info.aviso && info.width < perfil.recomendado.ancho * 0.6) {
+    info.aviso = `La imagen mide ${info.width} px de ancho; por debajo de `
+      + `${perfil.recomendado.ancho} px puede verse borrosa en pantallas densas.`;
+  }
   return info;
 }
 
-export default { inspeccionar, decodificarDataUrl, validarIcono, FORMATOS };
+/** Atajo para el perfil de icono, que es el caso más común. */
+export function validarIcono(buf) {
+  return validarImagen(buf, PERFILES.icon);
+}
+
+export default { inspeccionar, decodificarDataUrl, validarImagen, validarIcono, PERFILES, FORMATOS };

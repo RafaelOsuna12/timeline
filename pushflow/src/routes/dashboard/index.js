@@ -21,7 +21,7 @@ import {
 import { countAudience, countSegment, buildFilterSql } from '../../services/audience.js';
 import { isValidCron } from '../../lib/cron.js';
 import { stats as queueStats } from '../../services/queue.js';
-import { guardarIcono, borrarIcono, limpiarAntiguos } from '../../services/uploads.js';
+import { guardarIcono, guardarMedia, borrarIcono, limpiarAntiguos } from '../../services/uploads.js';
 import { absolutizar } from '../../lib/urls.js';
 import logger from '../../lib/logger.js';
 
@@ -55,6 +55,10 @@ export default async function dashboardRoutes(fastify) {
   const auth = { preHandler: requireAdmin };
   const appScope = { preHandler: loadAdminApp };
   const editor = { preHandler: [loadAdminApp, requireRole('owner', 'admin', 'member')] };
+  // Las imágenes viajan en base64, que abulta ~4/3: una imagen grande de 2 MB
+  // llega como un cuerpo de ~2,7 MB y el límite global (2 MB) la rechazaría
+  // con un 413 antes de que el validador pudiera decir nada útil.
+  const subida = { ...editor, bodyLimit: 4 * 1024 * 1024 };
 
   // -------------------------------------------------------------------------
   // Sesión
@@ -282,7 +286,7 @@ export default async function dashboardRoutes(fastify) {
    * La imagen llega como data URL en base64: evita una dependencia de
    * multipart para un fichero que nunca pasa de 1 MB.
    */
-  fastify.post('/admin/api/apps/:appId/icon', editor, async (request) => {
+  fastify.post('/admin/api/apps/:appId/icon', subida, async (request) => {
     const anterior = request.pushApp.default_icon_url;
     const icono = await guardarIcono(request.pushApp.id, request.body?.data);
 
@@ -300,8 +304,31 @@ export default async function dashboardRoutes(fastify) {
       format: icono.format,
       bytes: icono.bytes,
       // Aviso, no error: los sistemas recortan en cuadrado o círculo.
-      warning: icono.cuadrada ? null
-        : `La imagen no es cuadrada (${icono.width}×${icono.height}); al mostrarse se recortará.`,
+      warning: icono.aviso,
+    };
+  });
+
+  /**
+   * POST /apps/:appId/media — sube una imagen para una notificación concreta.
+   *
+   * A diferencia de /icon, no toca el registro de la app: solo devuelve la URL
+   * para que el redactor la pegue en `image_url` o en `icon_url`. Así la misma
+   * imagen puede reutilizarse en varias campañas sin cambiar el icono global.
+   */
+  fastify.post('/admin/api/apps/:appId/media', subida, async (request) => {
+    const { data, kind = 'banner' } = request.body || {};
+    if (!['banner', 'icon'].includes(kind)) {
+      throw badRequest('kind debe ser "banner" o "icon"');
+    }
+    const imagen = await guardarMedia(request.pushApp.id, data, kind);
+    return {
+      url: imagen.url,
+      width: imagen.width,
+      height: imagen.height,
+      format: imagen.format,
+      bytes: imagen.bytes,
+      // La proporción no bloquea el envío: solo se avisa del recorte.
+      warning: imagen.aviso,
     };
   });
 

@@ -294,10 +294,39 @@ VIEWS.compose = async (main) => {
             <div class="hint">Para la APK puedes usar un deep link propio en «Opciones avanzadas».</div>
           </div>
           <div class="row">
-            <div class="field"><label for="image_url">Imagen grande</label>
-              <input id="image_url" name="image_url" type="url" placeholder="https://…/banner.jpg"></div>
-            <div class="field"><label for="icon_url">Icono</label>
-              <input id="icon_url" name="icon_url" type="url" placeholder="https://…/icono.png"></div>
+            <div class="field">
+              <label for="image_url">Imagen grande</label>
+              <div class="media-row">
+                <div class="media-thumb vacio" id="thumb-image"><img alt=""></div>
+                <div class="media-main">
+                  <input id="image_url" name="image_url" type="url" placeholder="https://…/banner.jpg">
+                  <div class="flex wrap">
+                    <button type="button" class="btn-ghost btn-sm" data-subir="image">Subir</button>
+                    <button type="button" class="btn-ghost btn-sm" data-quitar="image" disabled>Quitar</button>
+                    <input type="file" id="file-image" accept="image/png,image/jpeg,image/webp" hidden>
+                  </div>
+                </div>
+              </div>
+              <div class="hint">Recomendado <b>1440 × 720 px</b> (proporción 2:1),
+                máx. 2 MB. PNG, JPEG o WebP.<span id="meta-image"></span></div>
+            </div>
+            <div class="field">
+              <label for="icon_url">Icono</label>
+              <div class="media-row">
+                <div class="media-thumb vacio" id="thumb-icon"><img alt=""></div>
+                <div class="media-main">
+                  <input id="icon_url" name="icon_url" type="url" placeholder="https://…/icono.png">
+                  <div class="flex wrap">
+                    <button type="button" class="btn-ghost btn-sm" data-subir="icon">Subir</button>
+                    <button type="button" class="btn-ghost btn-sm" data-quitar="icon" disabled>Quitar</button>
+                    <input type="file" id="file-icon" accept="image/png,image/jpeg,image/webp" hidden>
+                  </div>
+                </div>
+              </div>
+              <div class="hint">Recomendado <b>192 × 192 px</b> (cuadrado), máx. 1 MB.
+                PNG, JPEG o WebP. Si lo dejas vacío se usa el icono de la app.<span
+                id="meta-icon"></span></div>
+            </div>
           </div>
 
           <details class="mt">
@@ -494,6 +523,84 @@ VIEWS.compose = async (main) => {
     return body;
   }
 
+  // --- Imágenes: subir desde el equipo o pegar una URL ---------------------
+  // Cada campo tiene el mismo comportamiento, solo cambian el perfil que
+  // valida el servidor y el texto de ayuda al que se vuelve tras un error.
+  const MEDIA = {
+    image: { campo: 'image_url', kind: 'banner', maxBytes: 2 * 1024 * 1024 },
+    icon: { campo: 'icon_url', kind: 'icon', maxBytes: 1024 * 1024 },
+  };
+
+  /** Línea de estado bajo cada campo: se añade a la recomendación, no la tapa. */
+  function estadoMedia(clave, texto, esError = false) {
+    const span = main.querySelector(`#meta-${clave}`);
+    span.textContent = texto ? ` — ${texto}` : '';
+    span.className = esError ? 'critico' : '';
+  }
+
+  function pintarMedia(clave, url) {
+    const thumb = main.querySelector(`#thumb-${clave}`);
+    const img = thumb.querySelector('img');
+    thumb.classList.toggle('vacio', !url);
+    // Una URL que no carga vuelve al marcador: mejor eso que el icono de rota.
+    img.onerror = () => thumb.classList.add('vacio');
+    img.src = url || '';
+    main.querySelector(`[data-quitar="${clave}"]`).disabled = !url;
+  }
+
+  async function subirMedia(clave, file) {
+    const cfg = MEDIA[clave];
+    const limite = `${Math.round(cfg.maxBytes / 1024 / 1024)} MB`;
+    if (file.size > cfg.maxBytes) {
+      // Se corta aquí: no tiene sentido subir el fichero para que lo rechacen.
+      estadoMedia(clave, `el fichero pesa más de ${limite}`, true);
+      toast(`La imagen supera ${limite}`, true);
+      return;
+    }
+    estadoMedia(clave, 'subiendo…');
+    try {
+      const data = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('No se pudo leer el fichero'));
+        reader.readAsDataURL(file);
+      });
+      const result = await api(`/apps/${state.app.id}/media`,
+        { method: 'POST', body: { data, kind: cfg.kind } });
+      form[cfg.campo].value = result.url;
+      pintarMedia(clave, result.url);
+      drawPreview();
+      const kb = result.bytes / 1024;
+      estadoMedia(clave, `subida: ${result.width} × ${result.height} px, `
+        + (kb < 1 ? `${result.bytes} B` : `${Math.round(kb)} KB`));
+      if (result.warning) toast(result.warning, true);
+      else toast('Imagen subida');
+    } catch (err) {
+      toast(err.message, true);
+      estadoMedia(clave, err.message, true);
+    }
+  }
+
+  for (const clave of Object.keys(MEDIA)) {
+    const input = main.querySelector(`#file-${clave}`);
+    main.querySelector(`[data-subir="${clave}"]`).addEventListener('click', () => input.click());
+    input.addEventListener('change', async (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      await subirMedia(clave, file);
+      event.target.value = '';   // permite volver a elegir el mismo fichero
+    });
+    main.querySelector(`[data-quitar="${clave}"]`).addEventListener('click', () => {
+      form[MEDIA[clave].campo].value = '';
+      pintarMedia(clave, '');
+      estadoMedia(clave, '');
+      drawPreview();
+    });
+    // Pegar una URL a mano también actualiza la miniatura.
+    main.querySelector(`#${MEDIA[clave].campo}`).addEventListener('input',
+      (event) => pintarMedia(clave, event.target.value.trim()));
+  }
+
   main.querySelector('#add-button').addEventListener('click', () => {
     const container = main.querySelector('#buttons');
     if (container.children.length >= 3) return;
@@ -531,6 +638,7 @@ VIEWS.compose = async (main) => {
     form.message.value = firstText(data.contents) || data.message || '';
     form.url.value = data.url || '';
     form.image_url.value = data.image_url || data.big_picture || '';
+    pintarMedia('image', form.image_url.value);
     drawPreview();
   });
 

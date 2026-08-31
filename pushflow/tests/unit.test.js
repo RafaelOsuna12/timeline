@@ -1,6 +1,7 @@
 /** Pruebas unitarias de la lógica pura (no requieren base de datos). */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import * as zlib from 'node:zlib';
 
 process.env.NODE_ENV = 'test';
 process.env.APP_SECRET = 'clave-de-pruebas-0123456789abcdef';
@@ -13,6 +14,31 @@ const { cronMatches } = await import('../src/lib/cron.js');
 const validate = await import('../src/lib/validate.js');
 const crypto = await import('../src/lib/crypto.js');
 const { parseUserAgent } = await import('../src/lib/useragent.js');
+const { validarImagen, PERFILES } = await import('../src/lib/images.js');
+
+/** PNG mínimo válido del tamaño pedido, generado sin dependencias. */
+function png(ancho, alto) {
+  const { deflateSync } = zlib;
+  const crc = (b) => {
+    let c = ~0;
+    for (const x of b) { c ^= x; for (let i = 0; i < 8; i++) c = (c >>> 1) ^ (0xEDB88320 & -(c & 1)); }
+    return ~c >>> 0;
+  };
+  const chunk = (tipo, datos) => {
+    const len = Buffer.alloc(4); len.writeUInt32BE(datos.length);
+    const cuerpo = Buffer.concat([Buffer.from(tipo, 'latin1'), datos]);
+    const c = Buffer.alloc(4); c.writeUInt32BE(crc(cuerpo));
+    return Buffer.concat([len, cuerpo, c]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(ancho, 0); ihdr.writeUInt32BE(alto, 4);
+  ihdr[8] = 8; ihdr[9] = 2;                       // 8 bits por canal, RGB
+  const raw = Buffer.concat(Array.from({ length: alto }, () => Buffer.alloc(1 + ancho * 3)));
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw)), chunk('IEND', Buffer.alloc(0)),
+  ]);
+}
 
 test('los filtros de tag generan comparación numérica cuando procede', () => {
   const p = new Params();
@@ -186,4 +212,35 @@ test('el user-agent identifica navegador y sistema operativo', () => {
   const android = parseUserAgent('Mozilla/5.0 (Linux; Android 14; Pixel 8) Chrome/120.0 Mobile');
   assert.equal(android.deviceType, 'mobile');
   assert.equal(android.os, 'android');
+});
+
+test('el perfil de icono acepta un cuadrado del tamaño recomendado', () => {
+  const info = validarImagen(png(192, 192), PERFILES.icon);
+  assert.equal(info.format, 'png');
+  assert.equal(info.proporcionOk, true);
+  assert.equal(info.aviso, null);
+});
+
+test('el perfil de banner rechaza lo que sirve como icono', () => {
+  // 192×192 vale como icono pero se queda por debajo del mínimo de la
+  // imagen grande: cada campo del redactor valida contra su propio perfil.
+  validarImagen(png(192, 192), PERFILES.icon);
+  assert.throws(() => validarImagen(png(192, 192), PERFILES.banner),
+    /demasiado pequeña/);
+});
+
+test('la proporción distinta avisa pero no bloquea el envío', () => {
+  const info = validarImagen(png(800, 800), PERFILES.banner);
+  assert.equal(info.proporcionOk, false);
+  assert.match(info.aviso, /se recomienda 1440×720/);
+});
+
+test('una imagen mucho menor que la recomendada avisa de que se verá borrosa', () => {
+  const info = validarImagen(png(600, 300), PERFILES.banner);
+  assert.equal(info.proporcionOk, true);          // 2:1 exacto
+  assert.match(info.aviso, /borrosa/);
+});
+
+test('el perfil de banner admite más peso que el de icono', () => {
+  assert.ok(PERFILES.banner.maxBytes > PERFILES.icon.maxBytes);
 });

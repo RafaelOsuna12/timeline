@@ -8,6 +8,7 @@ import { createServer } from 'node:https';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createECDH, randomBytes } from 'node:crypto';
+import { deflateSync } from 'node:zlib';
 
 const BASE = 'http://localhost:3000';
 
@@ -380,6 +381,62 @@ check('límite de peticiones activo en el SDK público',
   `cabecera: ${okOrigin.headers.get('x-ratelimit-limit')}`);
 check('límite de peticiones activo en la API',
   (await req('/api/v1/segments', { key: apiKey })).headers.get('x-ratelimit-limit') === '600');
+
+// --- Imágenes del redactor ---------------------------------------------------
+// Cada campo valida contra su propio perfil y, a diferencia del icono de la
+// app, subir una imagen aquí no debe tocar el registro de la app.
+const pngPrueba = (ancho, alto) => {
+  const crc = (b) => {
+    let c = ~0;
+    for (const x of b) { c ^= x; for (let i = 0; i < 8; i++) c = (c >>> 1) ^ (0xEDB88320 & -(c & 1)); }
+    return ~c >>> 0;
+  };
+  const chunk = (tipo, datos) => {
+    const len = Buffer.alloc(4); len.writeUInt32BE(datos.length);
+    const cuerpo = Buffer.concat([Buffer.from(tipo, 'latin1'), datos]);
+    const c = Buffer.alloc(4); c.writeUInt32BE(crc(cuerpo));
+    return Buffer.concat([len, cuerpo, c]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(ancho, 0); ihdr.writeUInt32BE(alto, 4);
+  ihdr[8] = 8; ihdr[9] = 2;
+  const raw = Buffer.concat(Array.from({ length: alto }, () => Buffer.alloc(1 + ancho * 3)));
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw)), chunk('IEND', Buffer.alloc(0)),
+  ]);
+};
+const dataUrl = (buf) => `data:image/png;base64,${buf.toString('base64')}`;
+const subirMedia = (buf, kind) => req(`/admin/api/apps/${appId}/media`,
+  { method: 'POST', cookie, body: { data: dataUrl(buf), kind } });
+
+const banner = await subirMedia(pngPrueba(1440, 720), 'banner');
+check('imagen grande aceptada', banner.status === 200 && banner.data.width === 1440,
+  JSON.stringify(banner.data).slice(0, 150));
+check('imagen grande del tamaño recomendado no avisa', banner.data?.warning === null);
+check('el fichero subido se sirve',
+  (await fetch(`${BASE}${new URL(banner.data.url).pathname}`)).status === 200);
+
+const cuadrada = await subirMedia(pngPrueba(800, 800), 'banner');
+check('proporción distinta avisa pero acepta',
+  cuadrada.status === 200 && /se recomienda 1440×720/.test(cuadrada.data.warning || ''),
+  cuadrada.data?.warning);
+
+const iconoOk = await subirMedia(pngPrueba(192, 192), 'icon');
+check('icono del redactor aceptado', iconoOk.status === 200 && iconoOk.data.height === 192);
+check('subir al redactor no cambia el icono de la app',
+  (await req(`/admin/api/apps/${appId}`, { cookie })).data?.app?.default_icon_url == null,
+  JSON.stringify((await req(`/admin/api/apps/${appId}`, { cookie })).data?.app?.default_icon_url));
+
+check('imagen por debajo del mínimo del perfil rechazada',
+  (await subirMedia(pngPrueba(40, 40), 'icon')).status === 400);
+check('lo que vale como icono no vale como imagen grande',
+  (await subirMedia(pngPrueba(192, 192), 'banner')).status === 400);
+check('kind desconocido rechazado',
+  (await subirMedia(pngPrueba(192, 192), 'miniatura')).status === 400);
+check('subir imágenes requiere sesión',
+  (await req(`/admin/api/apps/${appId}/media`, { method: 'POST',
+    body: { data: dataUrl(pngPrueba(192, 192)), kind: 'icon' } })).status === 401);
 
 mockPush.close();
 console.log(`\n${passed} correctas, ${failed} fallidas\n`);
