@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Fragmento para tu AndroidManifest.xml.
+  Copia los permisos y el receiver dentro de tu manifiesto existente.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!--
+      Necesario desde Android 8 para poder instalar un APK.
+      Google Play restringe este permiso, pero esta app no se distribuye por
+      Play, así que no hay problema. El usuario debe concederlo una vez desde
+      Ajustes; AppUpdater.openInstallPermissionSettings() le lleva allí.
+    -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <application>
+
+        <!-- Recibe el resultado de la instalación de PackageInstaller -->
+        <receiver
+            android:name="com.honorlab.updater.UpdateInstallReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.honorlab.updater.INSTALL_RESULT" />
+            </intent-filter>
+        </receiver>
+
+    </application>
+</manifest>

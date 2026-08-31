@@ -1,0 +1,282 @@
+/** Pruebas unitarias de la lógica pura (no requieren base de datos). */
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import * as zlib from 'node:zlib';
+
+process.env.NODE_ENV = 'test';
+process.env.APP_SECRET = 'clave-de-pruebas-0123456789abcdef';
+
+const { buildFilterSql } = await import('../src/services/audience.js');
+const { Params } = await import('../src/db/index.js');
+const payload = await import('../src/services/payload.js');
+const { computeSendTime } = await import('../src/services/dispatcher.js');
+const { cronMatches } = await import('../src/lib/cron.js');
+const validate = await import('../src/lib/validate.js');
+const crypto = await import('../src/lib/crypto.js');
+const { parseUserAgent } = await import('../src/lib/useragent.js');
+const { validarImagen, PERFILES } = await import('../src/lib/images.js');
+const { expandirAmbitos, AMBITOS } = await import('../src/services/maintenance.js');
+
+/** PNG mínimo válido del tamaño pedido, generado sin dependencias. */
+function png(ancho, alto) {
+  const { deflateSync } = zlib;
+  const crc = (b) => {
+    let c = ~0;
+    for (const x of b) { c ^= x; for (let i = 0; i < 8; i++) c = (c >>> 1) ^ (0xEDB88320 & -(c & 1)); }
+    return ~c >>> 0;
+  };
+  const chunk = (tipo, datos) => {
+    const len = Buffer.alloc(4); len.writeUInt32BE(datos.length);
+    const cuerpo = Buffer.concat([Buffer.from(tipo, 'latin1'), datos]);
+    const c = Buffer.alloc(4); c.writeUInt32BE(crc(cuerpo));
+    return Buffer.concat([len, cuerpo, c]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(ancho, 0); ihdr.writeUInt32BE(alto, 4);
+  ihdr[8] = 8; ihdr[9] = 2;                       // 8 bits por canal, RGB
+  const raw = Buffer.concat(Array.from({ length: alto }, () => Buffer.alloc(1 + ancho * 3)));
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw)), chunk('IEND', Buffer.alloc(0)),
+  ]);
+}
+
+test('los filtros de tag generan comparación numérica cuando procede', () => {
+  const p = new Params();
+  const sql = buildFilterSql([{ field: 'tag', key: 'nivel', relation: '>', value: '10' }], p);
+  assert.match(sql, /::numeric > \$2/);
+  assert.deepEqual(p.values, ['nivel', 10]);
+});
+
+test('el operador OR separa grupos de filtros', () => {
+  const p = new Params();
+  const sql = buildFilterSql([
+    { field: 'country', relation: '=', value: 'MX' },
+    { operator: 'OR' },
+    { field: 'language', relation: '=', value: 'es' },
+  ], p);
+  assert.match(sql, /\) OR \(/);
+});
+
+test('hours_ago con relación ">" busca marcas más antiguas', () => {
+  const p = new Params();
+  const sql = buildFilterSql([{ field: 'last_session', relation: '>', hours_ago: 48 }], p);
+  assert.match(sql, /s\.last_seen_at < now\(\)/);
+});
+
+test('un campo de filtro desconocido se rechaza', () => {
+  assert.throws(() => buildFilterSql([{ field: 'inventado', value: 'x' }], new Params()),
+    /Campo de filtro desconocido/);
+});
+
+test('el radio geográfico usa la fórmula de Haversine', () => {
+  const p = new Params();
+  const sql = buildFilterSql([{ field: 'location', lat: 19.43, long: -99.13, radius: 5000 }], p);
+  assert.match(sql, /6371000/);
+  assert.deepEqual(p.values, [19.43, -99.13, 5000]);
+});
+
+test('el idioma degrada de es-MX a es y luego a en', () => {
+  assert.equal(payload.pickLanguage({ 'es-mx': 'A', es: 'B', en: 'C' }, 'es-MX'), 'A');
+  assert.equal(payload.pickLanguage({ es: 'B', en: 'C' }, 'es-MX'), 'B');
+  assert.equal(payload.pickLanguage({ en: 'C' }, 'fr'), 'C');
+  assert.equal(payload.pickLanguage({ pt: 'D' }, 'fr'), 'D');
+});
+
+test('las plantillas {{tag}} se sustituyen con valor por defecto', () => {
+  const sub = { tags: { nombre: 'Ana' }, external_user_id: 'u1' };
+  assert.equal(payload.interpolate('Hola {{nombre}}', sub), 'Hola Ana');
+  assert.equal(payload.interpolate('Hola {{apellido|amigo}}', sub), 'Hola amigo');
+  assert.equal(payload.interpolate('ID {{external_id}}', sub), 'ID u1');
+});
+
+test('el payload web incluye emojis, imagen y botones con claves compactas', () => {
+  const notification = {
+    id: 'n1', app_id: 'a1',
+    headings: { es: '🔥 Oferta' }, contents: { es: 'Hoy 50% 🎉' },
+    image_url: 'https://x/i.jpg', icon_url: 'https://x/ic.png',
+    url: 'https://x/oferta', ttl: 3600, priority: 10,
+    buttons: [{ id: 'ver', text: 'Ver', url: 'https://x/ver' }],
+    data: { pedido: 42 },
+  };
+  const out = payload.buildWebPushPayload(notification, { language: 'es' }, { deliveryId: 9 });
+  assert.equal(out.t, '🔥 Oferta');
+  assert.equal(out.b, 'Hoy 50% 🎉');
+  assert.equal(out.im, 'https://x/i.jpg');
+  assert.equal(out.ic, 'https://x/ic.png');
+  assert.equal(out.ap, 'a1');
+  assert.equal(out.dl, '9');
+  assert.deepEqual(out.a, [{ i: 'ver', t: 'Ver', u: 'https://x/ver' }]);
+  assert.deepEqual(out.d, { pedido: 42 });
+});
+
+test('sin icono propio se usa el de marca, nunca el genérico del navegador', () => {
+  const out = payload.buildWebPushPayload(
+    { id: 'n1', app_id: 'a1', headings: {}, contents: { es: 'x' } }, { language: 'es' });
+  assert.match(out.ic, /\/brand\/icon-192\.png$/);
+  assert.match(out.bd, /\/brand\/badge-96\.png$/);
+});
+
+test('el mensaje FCM es data-only y convierte todo a texto', () => {
+  const notification = {
+    id: 'n1', headings: { es: 'Título 🚀' }, contents: { es: 'Cuerpo' },
+    app_url: 'miapp://pedido/42', image_url: 'https://x/i.jpg',
+    priority: 10, ttl: 3600, android_channel_id: 'ofertas',
+    buttons: [{ id: 'b1', text: 'Abrir' }], data: { x: 1 },
+  };
+  const message = payload.buildFcmMessage(notification, { fcm_token: 'tok', language: 'es' });
+  assert.equal(message.token, 'tok');
+  assert.equal(message.android.priority, 'HIGH');
+  assert.equal(message.android.ttl, '3600s');
+  assert.equal(message.data.pf_url, 'miapp://pedido/42');
+  assert.equal(message.data.pf_channel, 'ofertas');
+  assert.equal(typeof message.data.pf_buttons, 'string');
+  assert.equal(message.notification, undefined, 'debe ser data-only');
+  for (const value of Object.values(message.data)) assert.equal(typeof value, 'string');
+});
+
+test('la variante A/B sustituye título y mensaje', () => {
+  const notification = {
+    id: 'n1', headings: { es: 'A' }, contents: { es: 'a' },
+    ab_test: { variants: [{ id: 'B', headings: { es: 'B' }, contents: { es: 'b' } }] },
+  };
+  const out = payload.buildWebPushPayload(notification, { language: 'es' }, { variant: 'B' });
+  assert.equal(out.t, 'B');
+  assert.equal(out.b, 'b');
+});
+
+test('las horas silenciosas aplazan el envío al final de la ventana', () => {
+  const settings = { quiet_hours: { enabled: true, start: '22:00', end: '08:00' } };
+  const when = computeSendTime({ respect_quiet_hours: true }, { timezone_offset: 0 },
+    settings, new Date('2026-08-24T23:30:00Z'));
+  assert.equal(when.toISOString(), '2026-08-25T08:00:00.000Z');
+});
+
+test('la entrega por huso horario respeta la hora local', () => {
+  const when = computeSendTime(
+    { delayed_option: 'timezone', delivery_time_of_day: '09:00' },
+    { timezone_offset: -360 }, {}, new Date('2026-08-24T12:00:00Z'));
+  assert.equal(when.toISOString(), '2026-08-24T15:00:00.000Z');   // 09:00 en UTC-6
+});
+
+test('el evaluador cron reconoce pasos y rangos', () => {
+  assert.ok(cronMatches('0 9 * * *', new Date('2026-08-24T09:00:00Z')));
+  assert.ok(!cronMatches('0 9 * * *', new Date('2026-08-24T10:00:00Z')));
+  assert.ok(cronMatches('*/15 * * * *', new Date('2026-08-24T10:30:00Z')));
+  assert.ok(cronMatches('0 9 * * 1-5', new Date('2026-08-24T09:00:00Z'))); // lunes
+  assert.ok(!cronMatches('0 9 * * 6', new Date('2026-08-24T09:00:00Z')));
+});
+
+test('los tags se validan y `null` marca borrado', () => {
+  assert.deepEqual(validate.sanitizeTags({ plan: 'pro', nivel: 7, viejo: null }),
+    { plan: 'pro', nivel: '7', viejo: null });
+  assert.throws(() => validate.sanitizeTags({ x: { anidado: 1 } }), /valor simple/);
+});
+
+test('el contenido localizado acepta texto plano y mapas por idioma', () => {
+  assert.deepEqual(validate.localized('Hola', 'contents'), { en: 'Hola' });
+  assert.deepEqual(validate.localized({ ES: 'Hola' }, 'contents'), { es: 'Hola' });
+  assert.throws(() => validate.localized({ espanol: 'Hola' }, 'contents'), /idioma inválido/);
+});
+
+test('parseWhen entiende fechas ISO y expresiones relativas', () => {
+  const when = validate.parseWhen('in 2 hours');
+  assert.ok(when.getTime() > Date.now() + 7_000_000);
+  assert.equal(validate.parseWhen('2026-09-01T10:00:00Z').toISOString(), '2026-09-01T10:00:00.000Z');
+});
+
+test('las rutas internas se resuelven contra el dominio público', async () => {
+  const { absolutizar } = await import('../src/lib/urls.js');
+  assert.match(absolutizar('/uploads/app/icon.png'), /^https?:\/\/.+\/uploads\/app\/icon\.png$/);
+  // Una URL externa no se toca: el icono puede vivir en otro servidor.
+  assert.equal(absolutizar('https://cdn.ajeno.com/i.png'), 'https://cdn.ajeno.com/i.png');
+  assert.equal(absolutizar(null), null);
+});
+
+test('las contraseñas usan scrypt con sal aleatoria', () => {
+  const hash = crypto.hashPassword('secreta-larga');
+  assert.notEqual(hash, crypto.hashPassword('secreta-larga'));
+  assert.ok(crypto.verifyPassword('secreta-larga', hash));
+  assert.ok(!crypto.verifyPassword('otra', hash));
+});
+
+test('las credenciales se cifran con AES-256-GCM', () => {
+  const encrypted = crypto.encryptSecret('-----BEGIN PRIVATE KEY-----');
+  assert.match(encrypted, /^v1\./);
+  assert.equal(crypto.decryptSecret(encrypted), '-----BEGIN PRIVATE KEY-----');
+});
+
+test('el user-agent identifica navegador y sistema operativo', () => {
+  const chrome = parseUserAgent('Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/120.0.0.0');
+  assert.equal(chrome.browserName, 'chrome');
+  assert.equal(chrome.os, 'windows');
+  const android = parseUserAgent('Mozilla/5.0 (Linux; Android 14; Pixel 8) Chrome/120.0 Mobile');
+  assert.equal(android.deviceType, 'mobile');
+  assert.equal(android.os, 'android');
+});
+
+test('el perfil de icono acepta un cuadrado del tamaño recomendado', () => {
+  const info = validarImagen(png(192, 192), PERFILES.icon);
+  assert.equal(info.format, 'png');
+  assert.equal(info.proporcionOk, true);
+  assert.equal(info.aviso, null);
+});
+
+test('el perfil de banner rechaza lo que sirve como icono', () => {
+  // 192×192 vale como icono pero se queda por debajo del mínimo de la
+  // imagen grande: cada campo del redactor valida contra su propio perfil.
+  validarImagen(png(192, 192), PERFILES.icon);
+  assert.throws(() => validarImagen(png(192, 192), PERFILES.banner),
+    /demasiado pequeña/);
+});
+
+test('la proporción distinta avisa pero no bloquea el envío', () => {
+  const info = validarImagen(png(800, 800), PERFILES.banner);
+  assert.equal(info.proporcionOk, false);
+  assert.match(info.aviso, /se recomienda 1440×720/);
+});
+
+test('una imagen mucho menor que la recomendada avisa de que se verá borrosa', () => {
+  const info = validarImagen(png(600, 300), PERFILES.banner);
+  assert.equal(info.proporcionOk, true);          // 2:1 exacto
+  assert.match(info.aviso, /borrosa/);
+});
+
+test('el perfil de banner admite más peso que el de icono', () => {
+  assert.ok(PERFILES.banner.maxBytes > PERFILES.icon.maxBytes);
+});
+
+test('borrar suscriptores arrastra las estadísticas', () => {
+  // Los eventos y las entregas apuntan a los dispositivos: conservarlos
+  // dejaría una analítica que habla de gente que ya no existe.
+  const ambitos = expandirAmbitos(['suscriptores']);
+  assert.ok(ambitos.includes('suscriptores'));
+  assert.ok(ambitos.includes('estadisticas'));
+});
+
+test('reiniciar estadísticas no arrastra a nadie', () => {
+  assert.deepEqual(expandirAmbitos(['estadisticas']), ['estadisticas']);
+});
+
+test('el historial de notificaciones se borra por su cuenta', () => {
+  assert.deepEqual(expandirAmbitos(['notificaciones']), ['notificaciones']);
+});
+
+test('los ámbitos repetidos no se duplican', () => {
+  const ambitos = expandirAmbitos(['suscriptores', 'estadisticas']);
+  assert.equal(ambitos.length, new Set(ambitos).size);
+  assert.equal(ambitos.length, 2);
+});
+
+test('un ámbito desconocido se rechaza', () => {
+  assert.throws(() => expandirAmbitos(['todo']), /Ámbito desconocido/);
+  assert.throws(() => expandirAmbitos([]), /al menos un ámbito/);
+  assert.throws(() => expandirAmbitos('estadisticas'), /al menos un ámbito/);
+});
+
+test('cada ámbito se describe para el aviso del panel', () => {
+  for (const [id, a] of Object.entries(AMBITOS)) {
+    assert.ok(a.etiqueta && a.descripcion, `${id} sin texto`);
+    assert.ok(Array.isArray(a.implica));
+  }
+});
