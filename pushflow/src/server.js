@@ -208,10 +208,20 @@ export async function buildServer() {
     return readFileSync(resolve(PUBLIC_DIR, 'sdk/v1/pushflow-sw.js'), 'utf8');
   });
 
-  fastify.get('/', async (request, reply) => {
+  /**
+   * El panel se sirve en la raíz y también en `/dashboard`, que es la URL que
+   * la gente escribe a mano. Los estáticos van con `index: false`, así que la
+   * carpeta no se resuelve sola: sin esta ruta `/dashboard/` caería en el
+   * manejador de 404, que trata ese prefijo como fichero y devolvería un 404.
+   * Con `ignoreTrailingSlash` activo, declarar `/dashboard` cubre las dos
+   * formas de escribirlo.
+   */
+  const servirPanel = async (request, reply) => {
     reply.type('text/html');
     return readFileSync(resolve(PUBLIC_DIR, 'dashboard/index.html'), 'utf8');
-  });
+  };
+  fastify.get('/', servirPanel);
+  fastify.get('/dashboard', servirPanel);
 
   return fastify;
 }

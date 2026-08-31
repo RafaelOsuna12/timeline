@@ -438,6 +438,21 @@ check('subir imágenes requiere sesión',
   (await req(`/admin/api/apps/${appId}/media`, { method: 'POST',
     body: { data: dataUrl(pngPrueba(192, 192)), kind: 'icon' } })).status === 401);
 
+// --- URL del panel -----------------------------------------------------------
+// `/dashboard/` es la que la gente escribe a mano; los estáticos van con
+// `index: false`, así que la carpeta necesita su propia ruta.
+for (const ruta of ['/', '/dashboard', '/dashboard/', '/dashboard/index.html']) {
+  const r = await fetch(`${BASE}${ruta}`);
+  check(`el panel responde en ${ruta}`,
+    r.status === 200 && (await r.text()).includes('PushFlow'), `estado ${r.status}`);
+}
+// Un estático que no existe sigue dando 404: nunca el HTML del panel con 200.
+check('estático inexistente del panel devuelve 404',
+  (await fetch(`${BASE}/dashboard/js/no-existe.js`)).status === 404);
+check('los directorios de ficheros no se listan',
+  (await fetch(`${BASE}/uploads/`)).status === 404
+  && (await fetch(`${BASE}/brand/`)).status === 404);
+
 mockPush.close();
 console.log(`\n${passed} correctas, ${failed} fallidas\n`);
 process.exit(failed ? 1 : 0);
