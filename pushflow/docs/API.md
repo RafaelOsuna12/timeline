@@ -396,6 +396,63 @@ del lado mínimo sí devuelve `400`.
 
 ---
 
+## Dispositivos de prueba y vaciado (panel)
+
+### `PATCH /admin/api/apps/:appId/subscriptions/:id`
+
+```json
+{ "es_prueba": true }
+```
+
+Marca un dispositivo como de prueba (`test_type = 2`) o le quita la marca
+(`es_prueba: false`). Ese valor es el que miran el segmento «Usuarios de
+prueba» y el botón «Enviar prueba» del redactor, así que un envío con
+`filters: [{ "field": "test_type", "relation": "=", "value": 2 }]` llega solo a
+los dispositivos marcados.
+
+Admite además `tags` y `external_user_id`. En el listado
+`GET /admin/api/apps/:appId/subscriptions`, cada fila trae ya `test_type`, y
+`?status=test` devuelve solo los dispositivos marcados.
+
+### `GET /admin/api/apps/:appId/reset`
+
+Devuelve qué se puede vaciar y cuántas filas hay ahora, para poder avisar con
+cifras reales antes de borrar. `confirmacion` es el texto que hay que enviar
+en el POST.
+
+```json
+{ "confirmacion": "Mi aplicación",
+  "ambitos": [{ "id": "estadisticas", "etiqueta": "…", "implica": [] }],
+  "actual": { "suscriptores": 1240, "notificaciones": 38, "eventos": 51200, "entregas": 47310 } }
+```
+
+### `POST /admin/api/apps/:appId/reset`
+
+```json
+{ "ambitos": ["estadisticas", "suscriptores"], "confirmacion": "Mi aplicación" }
+```
+
+Borra los datos de la app. **Es irreversible y no hay copia de seguridad.**
+Requiere rol `owner` o `admin`, y que `confirmacion` sea el nombre exacto de la
+aplicación. Todo va en una transacción y queda anotado en `audit_log`.
+
+| Ámbito | Qué borra | Arrastra |
+|---|---|---|
+| `estadisticas` | Eventos, entregas, series por día y por hora, contadores de envío, recorridos de automatización. Pone a cero los totales de cada campaña. | — |
+| `suscriptores` | Dispositivos, usuarios finales y alias. | `estadisticas` |
+| `notificaciones` | Campañas enviadas y programadas, y las exportaciones. | — |
+
+Cualquier ámbito vacía además la cola de envíos pendientes de esa app.
+
+**Lo que nunca se toca**: claves VAPID, credenciales de FCM, claves de API,
+segmentos, plantillas, automatizaciones, webhooks y los ajustes de la app. Por
+eso no hace falta volver a tocar el SDK del sitio después de vaciar.
+
+```json
+{ "ambitos": ["estadisticas", "suscriptores"],
+  "borrado": { "eventos": 51200, "entregas": 47310, "suscripciones": 1240 } }
+```
+
 ## Endpoints públicos (sin clave de API)
 
 Los usan los SDK. Se identifican con `app_id` y se validan contra los orígenes

@@ -4,7 +4,7 @@
 |---|---|---|
 | `npm test` | Lógica pura: filtros de segmentación, payloads por canal, idiomas, horas silenciosas, cron, criptografía | nada |
 | `npm run test:e2e` | Envío completo contra un servidor Web Push simulado: cifrado, entrega, analítica | PostgreSQL con datos de `npm run seed` |
-| `npm run test:integration` | 88 comprobaciones sobre la API HTTP: sesión, claves, suscriptores, segmentos, envío, analítica, automatizaciones, subida de imágenes, aislamiento entre apps | servidor y worker en marcha |
+| `npm run test:integration` | 110 comprobaciones sobre la API HTTP: sesión, claves, suscriptores, segmentos, envío, analítica, automatizaciones, subida de imágenes, dispositivos de prueba, vaciado de datos, aislamiento entre apps | servidor y worker en marcha |
 
 La prueba de integración levanta su propio servidor Web Push con un certificado
 autofirmado, así que el worker debe arrancarse con

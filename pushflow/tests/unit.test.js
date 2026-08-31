@@ -15,6 +15,7 @@ const validate = await import('../src/lib/validate.js');
 const crypto = await import('../src/lib/crypto.js');
 const { parseUserAgent } = await import('../src/lib/useragent.js');
 const { validarImagen, PERFILES } = await import('../src/lib/images.js');
+const { expandirAmbitos, AMBITOS } = await import('../src/services/maintenance.js');
 
 /** PNG mínimo válido del tamaño pedido, generado sin dependencias. */
 function png(ancho, alto) {
@@ -243,4 +244,39 @@ test('una imagen mucho menor que la recomendada avisa de que se verá borrosa', 
 
 test('el perfil de banner admite más peso que el de icono', () => {
   assert.ok(PERFILES.banner.maxBytes > PERFILES.icon.maxBytes);
+});
+
+test('borrar suscriptores arrastra las estadísticas', () => {
+  // Los eventos y las entregas apuntan a los dispositivos: conservarlos
+  // dejaría una analítica que habla de gente que ya no existe.
+  const ambitos = expandirAmbitos(['suscriptores']);
+  assert.ok(ambitos.includes('suscriptores'));
+  assert.ok(ambitos.includes('estadisticas'));
+});
+
+test('reiniciar estadísticas no arrastra a nadie', () => {
+  assert.deepEqual(expandirAmbitos(['estadisticas']), ['estadisticas']);
+});
+
+test('el historial de notificaciones se borra por su cuenta', () => {
+  assert.deepEqual(expandirAmbitos(['notificaciones']), ['notificaciones']);
+});
+
+test('los ámbitos repetidos no se duplican', () => {
+  const ambitos = expandirAmbitos(['suscriptores', 'estadisticas']);
+  assert.equal(ambitos.length, new Set(ambitos).size);
+  assert.equal(ambitos.length, 2);
+});
+
+test('un ámbito desconocido se rechaza', () => {
+  assert.throws(() => expandirAmbitos(['todo']), /Ámbito desconocido/);
+  assert.throws(() => expandirAmbitos([]), /al menos un ámbito/);
+  assert.throws(() => expandirAmbitos('estadisticas'), /al menos un ámbito/);
+});
+
+test('cada ámbito se describe para el aviso del panel', () => {
+  for (const [id, a] of Object.entries(AMBITOS)) {
+    assert.ok(a.etiqueta && a.descripcion, `${id} sin texto`);
+    assert.ok(Array.isArray(a.implica));
+  }
 });

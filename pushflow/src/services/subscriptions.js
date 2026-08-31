@@ -274,6 +274,8 @@ export async function listSubscriptions(appId, { limit = 50, offset = 0, search,
   if (status === 'active') conds.push('subscribed AND NOT invalid AND NOT opted_out');
   else if (status === 'unsubscribed') conds.push('(NOT subscribed OR opted_out)');
   else if (status === 'invalid') conds.push('invalid');
+  // `test_type = 2` es la marca de «usuario de prueba» que fija el panel.
+  else if (status === 'test') conds.push('test_type = 2');
   if (search) {
     values.push(`%${search}%`);
     conds.push(`(external_user_id ILIKE $${values.length} OR id::text ILIKE $${values.length}
@@ -283,7 +285,7 @@ export async function listSubscriptions(appId, { limit = 50, offset = 0, search,
   const rows = await many(
     `SELECT id, channel, external_user_id, device_type, browser_name, device_os, country, city,
             language, timezone, subscribed, invalid, opted_out, tags, session_count,
-            last_seen_at, created_at
+            test_type, last_seen_at, created_at
      FROM subscriptions WHERE ${conds.join(' AND ')}
      ORDER BY created_at DESC LIMIT $${values.length - 1} OFFSET $${values.length}`, values);
   const total = await one(

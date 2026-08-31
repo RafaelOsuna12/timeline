@@ -854,6 +854,7 @@ VIEWS.audience = async (main) => {
           <option value="active"${filters.status === 'active' ? ' selected' : ''}>Activos</option>
           <option value="unsubscribed"${filters.status === 'unsubscribed' ? ' selected' : ''}>Dados de baja</option>
           <option value="invalid"${filters.status === 'invalid' ? ' selected' : ''}>No válidos</option>
+          <option value="test"${filters.status === 'test' ? ' selected' : ''}>Solo de prueba</option>
           <option value="">Todos</option>
         </select>
       </div>
@@ -861,7 +862,8 @@ VIEWS.audience = async (main) => {
     <div class="card">
       ${subscriptions.length ? `<div class="table-wrap"><table>
         <thead><tr><th>Dispositivo</th><th>Usuario</th><th>Ubicación</th><th>Tags</th>
-          <th class="num">Sesiones</th><th>Última visita</th><th>Estado</th></tr></thead>
+          <th class="num">Sesiones</th><th>Última visita</th><th>Estado</th>
+          <th title="Recibe los envíos de prueba sin que los vea nadie más">Prueba</th></tr></thead>
         <tbody>${subscriptions.map((s) => `<tr>
           <td><div>${s.channel === 'android' ? '📱 Android' : `🌐 ${esc(s.browser_name || 'Navegador')}`}</div>
               <div class="small muted mono">${s.id.slice(0, 8)}…</div></td>
@@ -875,6 +877,9 @@ VIEWS.audience = async (main) => {
           <td>${s.invalid ? '<span class="tag err">No válido</span>'
             : s.subscribed && !s.opted_out ? '<span class="tag ok">Activo</span>'
             : '<span class="tag">Baja</span>'}</td>
+          <td><label class="switch" title="Marcar como dispositivo de prueba">
+            <input type="checkbox" class="es-prueba" data-id="${s.id}"
+              ${s.test_type === 2 ? 'checked' : ''}><span></span></label></td>
         </tr>`).join('')}</tbody></table></div>
         <div class="flex-between mt">
           <span class="small muted">Mostrando ${filters.offset + 1}–${filters.offset + subscriptions.length} de ${formatNumber(total)}</span>
@@ -905,6 +910,31 @@ VIEWS.audience = async (main) => {
   main.querySelector('#next')?.addEventListener('click', () => {
     filters.offset += 50; render();
   });
+  // Marcar un dispositivo como de prueba: a partir de ese momento recibe los
+  // envíos del botón «Enviar prueba» del redactor, y nadie más los ve.
+  for (const casilla of main.querySelectorAll('.es-prueba')) {
+    casilla.addEventListener('change', async (event) => {
+      const { id } = event.target.dataset;
+      const marcado = event.target.checked;
+      event.target.disabled = true;
+      try {
+        await api(`/apps/${state.app.id}/subscriptions/${id}`,
+          { method: 'PATCH', body: { es_prueba: marcado } });
+        toast(marcado
+          ? 'Dispositivo marcado como de prueba'
+          : 'El dispositivo ya no es de prueba');
+        // Con el filtro «Solo de prueba» puesto, la fila deja de pertenecer
+        // a la lista en cuanto se desmarca.
+        if (filters.status === 'test' && !marcado) render();
+      } catch (err) {
+        toast(err.message, true);
+        event.target.checked = !marcado;      // deshacer visualmente
+      } finally {
+        event.target.disabled = false;
+      }
+    });
+  }
+
   main.querySelector('#export').addEventListener('click', () => {
     toast('Usa la API: POST /api/v1/exports con {"kind":"subscriptions"}');
   });
@@ -1469,6 +1499,22 @@ VIEWS.settings = async (main) => {
               system.jobs.filter((j) => j.status === 'failed').reduce((s, j) => s + j.n, 0)}</td></tr>
           </tbody></table>
         </div>
+
+        ${['owner', 'admin'].includes(state.user?.role) ? `
+        <div class="card peligro">
+          <div class="card-head"><h2>Vaciar los datos de la aplicación</h2></div>
+          <p class="small muted">Para dejar la app como recién instalada cuando terminas de
+            probar. <b>No se puede deshacer</b> y no hay copia de seguridad.
+            La configuración se conserva: claves VAPID y de FCM, claves de API,
+            segmentos, plantillas y automatizaciones siguen donde están, así que
+            no hay que volver a tocar el SDK del sitio.</p>
+          <div id="reset-ambitos" class="mt"><span class="small muted">Cargando…</span></div>
+          <div class="field mt">
+            <label for="reset-nombre">Escribe <code>${esc(app.name)}</code> para confirmar</label>
+            <input id="reset-nombre" placeholder="${esc(app.name)}" autocomplete="off">
+          </div>
+          <button class="btn-danger" id="reset-btn" disabled>Vaciar los datos seleccionados</button>
+        </div>` : ''}
       </div>
     </div>`;
 
@@ -1478,6 +1524,62 @@ VIEWS.settings = async (main) => {
     toast('Ajustes guardados');
     render();
   };
+
+  // --- Vaciado de datos ----------------------------------------------------
+  // Los ámbitos y las cifras los da el servidor: así el aviso dice cuántas
+  // filas se van a perder de verdad, no un «se borrará todo» genérico.
+  const cajaReset = main.querySelector('#reset-ambitos');
+  if (cajaReset) {
+    const btnReset = main.querySelector('#reset-btn');
+    const campoNombre = main.querySelector('#reset-nombre');
+
+    const seleccionados = () => [...main.querySelectorAll('.ambito:checked')]
+      .map((c) => c.value);
+    const revisar = () => {
+      btnReset.disabled = campoNombre.value.trim() !== app.name || seleccionados().length === 0;
+    };
+
+    let etiquetas = {};
+    api(`/apps/${state.app.id}/reset`).then((info) => {
+      const n = info.actual;
+      etiquetas = Object.fromEntries(info.ambitos.map((a) => [a.id, a.etiqueta]));
+      cajaReset.innerHTML = `
+        <p class="small muted mb">Ahora mismo: ${formatNumber(n.suscriptores)} suscriptores ·
+          ${formatNumber(n.notificaciones)} notificaciones ·
+          ${formatNumber(n.eventos)} eventos · ${formatNumber(n.entregas)} entregas.</p>
+        ${info.ambitos.map((a) => `
+          <div class="check"><input type="checkbox" class="ambito" id="am-${a.id}" value="${a.id}">
+            <label for="am-${a.id}"><b>${esc(a.etiqueta)}</b>
+              <span class="small muted">— ${esc(a.descripcion)}</span>
+              ${a.implica.length ? `<span class="small muted">Arrastra también:
+                ${a.implica.map((id) => esc(etiquetas[id] || id).toLowerCase())
+                  .join(', ')}.</span>` : ''}</label></div>`).join('')}`;
+      for (const c of cajaReset.querySelectorAll('.ambito')) {
+        c.addEventListener('change', revisar);
+      }
+      revisar();
+    }).catch((err) => { cajaReset.innerHTML = `<span class="small">${esc(err.message)}</span>`; });
+
+    campoNombre.addEventListener('input', revisar);
+
+    btnReset.addEventListener('click', async () => {
+      const ambitos = seleccionados();
+      const nombres = ambitos.map((id) => etiquetas[id] || id).join(', ');
+      if (!confirm(`Se van a borrar de forma permanente: ${nombres}.\n\n`
+        + 'Esta acción no se puede deshacer. ¿Continuar?')) return;
+      btnReset.disabled = true;
+      try {
+        const r = await api(`/apps/${state.app.id}/reset`,
+          { method: 'POST', body: { ambitos, confirmacion: campoNombre.value.trim() } });
+        const filas = Object.values(r.borrado).reduce((a, b) => a + b, 0);
+        toast(`Datos vaciados (${formatNumber(filas)} filas afectadas)`);
+        render();
+      } catch (err) {
+        toast(err.message, true);
+        btnReset.disabled = false;
+      }
+    });
+  }
 
   main.querySelector('#save-app').addEventListener('click', async () => {
     try {

@@ -14,7 +14,8 @@ import {
 import { generateVapidKeys } from '../../services/channels/webpush.js';
 import { verifyCredentials, clearTokenCache } from '../../services/channels/fcm.js';
 import { appOverview, audienceBreakdown, notificationReport, growthSeries } from '../../services/analytics.js';
-import { listSubscriptions } from '../../services/subscriptions.js';
+import { listSubscriptions, updateSubscription } from '../../services/subscriptions.js';
+import { AMBITOS, limpiarApp } from '../../services/maintenance.js';
 import {
   listNotifications, createNotification, cancelNotification, sendAbWinner,
 } from '../../services/notifications.js';
@@ -59,6 +60,8 @@ export default async function dashboardRoutes(fastify) {
   // llega como un cuerpo de ~2,7 MB y el límite global (2 MB) la rechazaría
   // con un 413 antes de que el validador pudiera decir nada útil.
   const subida = { ...editor, bodyLimit: 4 * 1024 * 1024 };
+  // Borrar datos no es editar: lo reservamos a quien administra la cuenta.
+  const propietario = { preHandler: [loadAdminApp, requireRole('owner', 'admin')] };
 
   // -------------------------------------------------------------------------
   // Sesión
@@ -405,6 +408,74 @@ export default async function dashboardRoutes(fastify) {
       channel: request.query.channel,
       status: request.query.status,
     }));
+
+  /**
+   * PATCH /apps/:appId/subscriptions/:id — marca un dispositivo como de
+   * prueba, o le quita la marca.
+   *
+   * `test_type = 2` es el valor que ya usan el segmento «Usuarios de prueba»
+   * y el botón «Enviar prueba» del redactor, así que marcar aquí un
+   * dispositivo basta para que las pruebas le lleguen solo a él.
+   */
+  fastify.patch('/admin/api/apps/:appId/subscriptions/:id', editor, async (request) => {
+    const { es_prueba, tags, external_user_id } = request.body || {};
+    const patch = {};
+    if (es_prueba !== undefined) patch.test_type = es_prueba ? 2 : null;
+    if (tags !== undefined) patch.tags = tags;
+    if (external_user_id !== undefined) patch.external_user_id = external_user_id;
+    if (Object.keys(patch).length === 0) throw badRequest('No hay nada que cambiar');
+
+    // Se comprueba aquí para responder 404 a un id de otra app: el servicio
+    // que comparten panel y API pública devuelve 400 en ese caso.
+    const existe = await one('SELECT id FROM subscriptions WHERE app_id = $1 AND id = $2',
+      [request.pushApp.id, request.params.id]);
+    if (!existe) throw notFound('Suscriptor no encontrado');
+
+    const sub = await updateSubscription(request.pushApp.id, request.params.id, patch);
+    return { subscription: { id: sub.id, test_type: sub.test_type, tags: sub.tags,
+      external_user_id: sub.external_user_id } };
+  });
+
+  /**
+   * GET /apps/:appId/reset — qué se puede limpiar y cuántas filas hay ahora.
+   * Se consulta antes de enseñar el diálogo para que el aviso diga cifras
+   * reales y no un «se borrará todo» genérico.
+   */
+  fastify.get('/admin/api/apps/:appId/reset', propietario, async (request) => {
+    const resumen = await one(
+      `SELECT (SELECT count(*) FROM subscriptions WHERE app_id = $1) AS suscriptores,
+              (SELECT count(*) FROM notifications  WHERE app_id = $1) AS notificaciones,
+              (SELECT count(*) FROM events         WHERE app_id = $1) AS eventos,
+              (SELECT count(*) FROM deliveries     WHERE app_id = $1) AS entregas`,
+      [request.pushApp.id]);
+    return {
+      // El nombre es lo que hay que teclear para confirmar el borrado.
+      confirmacion: request.pushApp.name,
+      ambitos: Object.entries(AMBITOS).map(([id, a]) => ({
+        id, etiqueta: a.etiqueta, descripcion: a.descripcion, implica: a.implica })),
+      actual: resumen,
+    };
+  });
+
+  /**
+   * POST /apps/:appId/reset — borra los datos de la app. Irreversible.
+   *
+   * Pide el nombre de la app escrito a mano: es la única barrera entre un
+   * clic distraído y perder toda la analítica, y no hay papelera.
+   */
+  fastify.post('/admin/api/apps/:appId/reset', propietario, async (request) => {
+    const { ambitos, confirmacion } = request.body || {};
+    if (confirmacion !== request.pushApp.name) {
+      throw badRequest('Escribe el nombre exacto de la aplicación para confirmar');
+    }
+    const resultado = await limpiarApp(request.pushApp.id, ambitos, {
+      orgId: request.admin.org_id,
+      userId: request.admin.user_id,
+      ip: request.ip,
+    });
+    invalidateAppCache(request.pushApp.id);
+    return resultado;
+  });
 
   fastify.get('/admin/api/apps/:appId/notifications', appScope, async (request) =>
     listNotifications(request.pushApp.id, {

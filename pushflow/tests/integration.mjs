@@ -438,6 +438,92 @@ check('subir imágenes requiere sesión',
   (await req(`/admin/api/apps/${appId}/media`, { method: 'POST',
     body: { data: dataUrl(pngPrueba(192, 192)), kind: 'icon' } })).status === 401);
 
+// --- Dispositivos de prueba --------------------------------------------------
+// `test_type = 2` es lo que miran el segmento «Usuarios de prueba» y el botón
+// «Enviar prueba» del redactor: marcar aquí un dispositivo basta para aislar
+// los envíos de ensayo del resto de la audiencia.
+const marcado = await req(`/admin/api/apps/${appId}/subscriptions/${subId}`,
+  { method: 'PATCH', cookie, body: { es_prueba: true } });
+check('un suscriptor se marca como de prueba',
+  marcado.status === 200 && marcado.data.subscription.test_type === 2,
+  JSON.stringify(marcado.data).slice(0, 150));
+check('el listado del panel expone la marca',
+  (await req(`/admin/api/apps/${appId}/subscriptions`, { cookie }))
+    .data.subscriptions.find((s) => s.id === subId)?.test_type === 2);
+check('se puede filtrar por dispositivos de prueba', (() => true)()
+  && (await req(`/admin/api/apps/${appId}/subscriptions?status=test`, { cookie }))
+    .data.subscriptions.every((s) => s.test_type === 2));
+check('quitar la marca la deja en null',
+  (await req(`/admin/api/apps/${appId}/subscriptions/${subId}`,
+    { method: 'PATCH', cookie, body: { es_prueba: false } })).data.subscription.test_type === null);
+check('un PATCH sin cambios se rechaza',
+  (await req(`/admin/api/apps/${appId}/subscriptions/${subId}`,
+    { method: 'PATCH', cookie, body: {} })).status === 400);
+check('marcar un suscriptor de otra app da 404',
+  (await req(`/admin/api/apps/${otherApp.data.app.id}/subscriptions/${subId}`,
+    { method: 'PATCH', cookie, body: { es_prueba: true } })).status === 404);
+
+// --- Vaciado de datos --------------------------------------------------------
+const resumen = await req(`/admin/api/apps/${appId}/reset`, { cookie });
+check('el resumen previo dice qué hay y qué se puede limpiar',
+  resumen.status === 200 && resumen.data.ambitos.length === 3
+  && resumen.data.actual.suscriptores > 0,
+  JSON.stringify(resumen.data?.actual));
+check('el resumen dice el texto de confirmación',
+  typeof resumen.data.confirmacion === 'string' && resumen.data.confirmacion.length > 0);
+
+const nombreApp = resumen.data.confirmacion;
+check('sin el nombre exacto no se borra nada',
+  (await req(`/admin/api/apps/${appId}/reset`, { method: 'POST', cookie,
+    body: { ambitos: ['estadisticas'], confirmacion: 'lo que sea' } })).status === 400);
+check('un ámbito inventado se rechaza',
+  (await req(`/admin/api/apps/${appId}/reset`, { method: 'POST', cookie,
+    body: { ambitos: ['todo'], confirmacion: nombreApp } })).status === 400);
+check('hay que elegir al menos un ámbito',
+  (await req(`/admin/api/apps/${appId}/reset`, { method: 'POST', cookie,
+    body: { ambitos: [], confirmacion: nombreApp } })).status === 400);
+
+const limpieza = await req(`/admin/api/apps/${appId}/reset`, { method: 'POST', cookie,
+  body: { ambitos: ['estadisticas'], confirmacion: nombreApp } });
+check('reiniciar estadísticas borra eventos y entregas',
+  limpieza.status === 200 && limpieza.data.borrado.eventos > 0,
+  JSON.stringify(limpieza.data?.borrado));
+const trasLimpiar = (await req(`/admin/api/apps/${appId}/reset`, { cookie })).data.actual;
+check('los contadores quedan a cero', trasLimpiar.eventos === 0 && trasLimpiar.entregas === 0,
+  JSON.stringify(trasLimpiar));
+check('los suscriptores sobreviven al reinicio de estadísticas', trasLimpiar.suscriptores > 0);
+check('el historial de campañas sobrevive', trasLimpiar.notificaciones > 0);
+
+check('borrar suscriptores arrastra las estadísticas',
+  (await req(`/admin/api/apps/${appId}/reset`, { method: 'POST', cookie,
+    body: { ambitos: ['suscriptores'], confirmacion: nombreApp } }))
+    .data.ambitos.includes('estadisticas'));
+check('ya no queda ningún suscriptor',
+  (await req(`/admin/api/apps/${appId}/reset`, { cookie })).data.actual.suscriptores === 0);
+// Lo que nunca se toca: si se borrase, habría que reinstalar el SDK.
+check('la configuración de la app se conserva',
+  Boolean((await req(`/admin/api/apps/${appId}`, { cookie })).data.app.vapid_public));
+check('las claves de API se conservan',
+  (await req(`/admin/api/apps/${appId}/keys`, { cookie })).data.keys.length > 0);
+check('el SDK sigue admitiendo altas después de vaciar',
+  (await req('/sdk/v1/subscribe', { method: 'POST', body: {
+    app_id: appId, channel: 'android', fcm_token: 'token-tras-vaciado' } })).status === 201);
+
+// Vaciar datos es cosa de quien administra, no de cualquiera con permiso de edición.
+await req('/admin/api/team', { method: 'POST', cookie, body: {
+  email: `miembro-${Date.now()}@demo.com`, password: 'miembroSegura123', role: 'member' } });
+const sesionMiembro = await req('/admin/api/login', { method: 'POST', body: {
+  email: (await req('/admin/api/team', { cookie })).data.members
+    .find((u) => u.role === 'member').email, password: 'miembroSegura123' } });
+const cookieMiembro = sesionMiembro.headers.get('set-cookie')?.split(';')[0];
+check('un miembro no puede vaciar los datos',
+  (await req(`/admin/api/apps/${appId}/reset`, { method: 'POST', cookie: cookieMiembro,
+    body: { ambitos: ['estadisticas'], confirmacion: nombreApp } })).status === 403,
+  `sesión de miembro: ${sesionMiembro.status}`);
+check('un miembro sí puede marcar dispositivos de prueba',
+  [200, 404].includes((await req(`/admin/api/apps/${appId}/subscriptions/${subId}`,
+    { method: 'PATCH', cookie: cookieMiembro, body: { es_prueba: true } })).status));
+
 // --- URL del panel -----------------------------------------------------------
 // `/dashboard/` es la que la gente escribe a mano; los estáticos van con
 // `index: false`, así que la carpeta necesita su propia ruta.
