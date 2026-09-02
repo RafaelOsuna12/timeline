@@ -10,7 +10,9 @@ set -euo pipefail
 
 APP_DIR="${APP_DIR:-/opt/estadisticas}"
 APP_USER="${APP_USER:-estadisticas}"
-BRANCH="${BRANCH:-main}"
+# Por defecto se actualiza la misma rama con la que se clono el repositorio,
+# en vez de asumir un nombre fijo que puede no existir.
+BRANCH="${BRANCH:-}"
 
 log() { printf '\n\033[1;34m==>\033[0m %s\n' "$*"; }
 die() { printf '\n\033[1;31mError:\033[0m %s\n' "$*" >&2; exit 1; }
@@ -19,6 +21,10 @@ die() { printf '\n\033[1;31mError:\033[0m %s\n' "$*" >&2; exit 1; }
 [[ -d "$APP_DIR" ]] || die "No existe $APP_DIR. Ejecuta primero deploy/install.sh."
 
 if [[ -d "$APP_DIR/.git" ]]; then
+  if [[ -z "$BRANCH" ]]; then
+    BRANCH="$(git -C "$APP_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+    [[ -n "$BRANCH" && "$BRANCH" != "HEAD" ]] || die "No se pudo determinar la rama. Indica una con BRANCH=<rama>."
+  fi
   log "Descargando la ultima version (rama ${BRANCH})"
   sudo -u "$APP_USER" git -C "$APP_DIR" fetch --prune origin "$BRANCH"
   sudo -u "$APP_USER" git -C "$APP_DIR" reset --hard "origin/${BRANCH}"

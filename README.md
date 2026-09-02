@@ -56,8 +56,9 @@ Requisitos: Ubuntu o Debian con acceso root, el dominio
 servidor, y los puertos 80 y 443 abiertos.
 
 ```bash
-# 1. Traer el código
-sudo git clone https://github.com/RafaelOsuna12/timeline.git /opt/estadisticas
+# 1. Traer el código (la rama con el sistema)
+sudo git clone -b claude/sales-analytics-dashboard-i7pkoj \
+  https://github.com/RafaelOsuna12/timeline.git /opt/estadisticas
 cd /opt/estadisticas
 
 # 2. Instalar (Node, nginx, servicio, firewall)
@@ -80,6 +81,8 @@ sudo bash /opt/estadisticas/deploy/deploy.sh
 ```
 
 Solo actualiza el código: la base de datos y los archivos cargados no se tocan.
+Toma por defecto la misma rama con la que se clonó; para usar otra,
+`sudo BRANCH=main bash /opt/estadisticas/deploy/deploy.sh`.
 
 ### Respaldos
 
