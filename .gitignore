@@ -1,0 +1,23 @@
+# Dependencias
+node_modules/
+
+# Compilados
+web/dist/
+
+# Datos locales (base SQLite y archivos de Excel cargados)
+server/data/
+*.db
+*.db-wal
+*.db-shm
+
+# Configuracion con secretos
+.env
+.env.local
+server/.env
+
+# Sistema y editores
+.DS_Store
+*.log
+npm-debug.log*
+.vscode/
+.idea/

@@ -1,0 +1,51 @@
+# ---------------------------------------------------------------------------
+# Servicio del backend de estadisticas.honorlab.dev
+#
+#   sudo cp deploy/systemd/estadisticas.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now estadisticas
+#   sudo systemctl status estadisticas
+#   journalctl -u estadisticas -f      # ver los registros en vivo
+# ---------------------------------------------------------------------------
+[Unit]
+Description=Estadisticas de avance de ventas (estadisticas.honorlab.dev)
+Documentation=https://estadisticas.honorlab.dev
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=estadisticas
+Group=estadisticas
+WorkingDirectory=/opt/estadisticas/server
+Environment=NODE_ENV=production
+EnvironmentFile=/opt/estadisticas/server/.env
+ExecStart=/usr/bin/node src/index.js
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=estadisticas
+
+# --- Endurecimiento -------------------------------------------------------
+# El proceso solo necesita escribir en su directorio de datos.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/estadisticas
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=false
+RestrictRealtime=true
+RemoveIPC=true
+
+# El parseo del libro es intensivo en memoria por unos segundos.
+MemoryMax=1500M
+
+[Install]
+WantedBy=multi-user.target
