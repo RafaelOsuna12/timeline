@@ -42,6 +42,9 @@ app.use(
         formAction: ["'self'"],
       },
     },
+    // Se fija DENY para que coincida con la cabecera que añade nginx y no
+    // queden dos valores distintos en la misma respuesta.
+    frameguard: { action: 'deny' },
     crossOriginEmbedderPolicy: false,
     hsts: config.isProduction ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false,
   })

@@ -8,7 +8,7 @@
  *   - Si no se indica `snapshot`, se usa el vigente (corte mas reciente).
  */
 import express from 'express';
-import { requireAuth, requireRole, requireUpload } from '../auth.js';
+import { requireAuth, requireRole } from '../auth.js';
 import { db } from '../db.js';
 import {
   currentSnapshotId,

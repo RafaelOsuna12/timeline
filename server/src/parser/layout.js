@@ -61,21 +61,6 @@ export function findHeaderRow(ws, labels, { maxRow = MAX_HEADER_SCAN_ROWS, maxCo
   return null;
 }
 
-/**
- * Mapa etiqueta -> columna de una fila de encabezado (todas las etiquetas).
- */
-export function headerMap(ws, headerRow, maxCol) {
-  const map = new Map();
-  const limit = maxCol || ws.columnCount || 200;
-  for (let c = 1; c <= limit; c += 1) {
-    const t = text(ws, headerRow, c);
-    if (!t) continue;
-    const k = t.toUpperCase().replace(/\s+/g, ' ');
-    if (!map.has(k)) map.set(k, c);
-  }
-  return map;
-}
-
 /** Localiza una columna por coincidencia flexible sobre una fila de encabezado. */
 export function findColumn(ws, headerRow, matcher, { maxCol } = {}) {
   const limit = maxCol || ws.columnCount || 200;

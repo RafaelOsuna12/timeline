@@ -4,7 +4,7 @@
  * Los filtros viven en la URL (query string) para que cualquier vista del
  * tablero se pueda compartir por enlace tal cual se esta viendo.
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, session, setUnauthorizedHandler } from '../api.js';
 
@@ -58,7 +58,6 @@ export function DataProvider({ children }) {
   const [snapshots, setSnapshots] = useState([]);
   const [loadingCatalog, setLoadingCatalog] = useState(true);
   const [catalogError, setCatalogError] = useState(null);
-  const reloadRef = useRef(0);
 
   const filters = useMemo(() => {
     const out = {};
@@ -108,7 +107,6 @@ export function DataProvider({ children }) {
   }, [setSearchParams]);
 
   const refresh = useCallback(() => {
-    reloadRef.current += 1;
     setLoadingCatalog(true);
     Promise.all([api.snapshots(), api.filters(filters.snapshot ? { snapshot: filters.snapshot } : {})])
       .then(([s, f]) => {
@@ -162,11 +160,6 @@ export function useData() {
 export function useQuery(fetcher, deps, { skip = false } = {}) {
   const [state, setState] = useState({ data: null, error: null, loading: !skip });
   const [refreshing, setRefreshing] = useState(false);
-  const mounted = useRef(true);
-
-  useEffect(() => () => {
-    mounted.current = false;
-  }, []);
 
   useEffect(() => {
     if (skip) {

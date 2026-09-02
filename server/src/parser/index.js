@@ -12,7 +12,7 @@
  * para cualquier mes.
  */
 import ExcelJS from 'exceljs';
-import { count, key, num, str, toNumber } from '../utils/cell.js';
+import { count, key, num, str } from '../utils/cell.js';
 import {
   blockDayColumns,
   findColumn,
@@ -20,7 +20,6 @@ import {
   findDateRow,
   findHeaderRow,
   lastRowWithValue,
-  rawAt,
   textAt,
 } from './layout.js';
 
