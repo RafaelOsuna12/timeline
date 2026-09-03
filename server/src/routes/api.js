@@ -85,7 +85,30 @@ api.get('/snapshots', (req, res) => {
   res.json({ snapshots, currentId: currentSnapshotId() });
 });
 
-api.get('/filters', view((snap) => buildFilters(snap)));
+/**
+ * Catalogos para poblar los filtros.
+ *
+ * Mientras no haya ninguna carga, responde con listas vacias en vez de 404: es
+ * una situacion normal (sistema recien instalado), no un error, y el tablero
+ * debe poder pintarse igual para mostrar la invitacion a subir el archivo.
+ */
+api.get('/filters', (req, res) => {
+  const requested = req.query.snapshot ? Number(req.query.snapshot) : null;
+  const id = requested || currentSnapshotId(req.query.period || undefined);
+  const snap = id ? loadSnapshot(id) : null;
+  if (!snap) {
+    return res.json({
+      regions: [],
+      cms: [],
+      supervisors: [],
+      channels: [],
+      stores: [],
+      statuses: [],
+      relations: [],
+    });
+  }
+  return res.json(buildFilters(snap));
+});
 
 /* -------------------------------- vistas -------------------------------- */
 
