@@ -11,7 +11,7 @@
  * descubrir encabezados y bloques de dias, de modo que el mismo codigo sirva
  * para cualquier mes.
  */
-import ExcelJS from 'exceljs';
+import { loadWorkbook } from './workbook.js';
 import { count, key, num, str } from '../utils/cell.js';
 import {
   blockDayColumns,
@@ -602,8 +602,7 @@ function detectCutoffDay(promoters, days) {
 /* ------------------------------------------------------------------ */
 
 export async function parseWorkbookFile(filePath, { sourceName } = {}) {
-  const wb = new ExcelJS.Workbook();
-  await wb.xlsx.readFile(filePath);
+  const wb = await loadWorkbook(filePath);
   return parseWorkbook(wb, { sourceName: sourceName || filePath.split('/').pop() });
 }
 
@@ -725,7 +724,7 @@ export function parseWorkbook(wb, { sourceName } = {}) {
       daysInMonth: period.daysInMonth,
       cutoffDay,
       cutoffDate: `${period.year}-${String(period.month).padStart(2, '0')}-${String(cutoffDay).padStart(2, '0')}`,
-      sheetNames: wb.worksheets.map((ws) => ws.name),
+      sheetNames: wb.sheetNames || wb.worksheets.map((ws) => ws.name),
       modelNames,
       warnings,
       parsedAt: new Date().toISOString(),

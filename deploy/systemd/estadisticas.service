@@ -20,7 +20,10 @@ Group=estadisticas
 WorkingDirectory=/opt/estadisticas/server
 Environment=NODE_ENV=production
 EnvironmentFile=/opt/estadisticas/server/.env
-ExecStart=/usr/bin/node src/index.js
+# --max-old-space-size acota el monton de V8 por debajo de MemoryMax. Sin el,
+# V8 dimensiona su limite segun la RAM total de la maquina, ignora el tope del
+# cgroup y systemd acaba matando el proceso en mitad del parseo del libro.
+ExecStart=/usr/bin/node --max-old-space-size=768 src/index.js
 Restart=always
 RestartSec=5
 StandardOutput=journal
@@ -44,8 +47,10 @@ MemoryDenyWriteExecute=false
 RestrictRealtime=true
 RemoveIPC=true
 
-# El parseo del libro es intensivo en memoria por unos segundos.
-MemoryMax=1500M
+# El parseo del libro es lo unico intensivo en memoria: llega a unos 320 MB de
+# RSS durante unos segundos. El tope deja margen amplio sobre ese pico.
+MemoryMax=1200M
+MemoryHigh=900M
 
 [Install]
 WantedBy=multi-user.target

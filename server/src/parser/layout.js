@@ -18,12 +18,34 @@ import { normalize } from '../utils/cell.js';
 const MAX_HEADER_SCAN_ROWS = 12;
 
 /**
- * Algunas celdas del libro son formulas con formato de fecha cuyo resultado
- * cacheado no es convertible (por ejemplo la fila de dias de la semana).
- * ExcelJS las devuelve como `Invalid Date`, asi que se descartan siempre.
+ * Interpretacion de fechas en las filas de encabezado.
+ *
+ * Dos casos hay que cubrir:
+ *
+ *  - Celdas de formula con formato de fecha cuyo resultado cacheado no es
+ *    convertible (la fila de dias de la semana). ExcelJS las devuelve como
+ *    `Invalid Date` y deben descartarse.
+ *  - Celdas de formula compartida: al leer el libro en streaming se pierde el
+ *    vinculo con el formato del maestro y la fecha llega como numero de serie
+ *    de Excel. El dato es correcto, solo falta convertirlo.
+ *
+ * El rango aceptado (1954-2119 aproximadamente) descarta cualquier cifra del
+ * reporte —targets, piezas, dias del mes— asi que no hay falsos positivos.
  */
+const EXCEL_EPOCH_MS = Date.UTC(1899, 11, 30);
+const SERIAL_MIN = 20000;
+const SERIAL_MAX = 80000;
+
+function toDate(v) {
+  if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : v;
+  if (typeof v === 'number' && v >= SERIAL_MIN && v <= SERIAL_MAX) {
+    return new Date(EXCEL_EPOCH_MS + Math.round(v) * 86400000);
+  }
+  return null;
+}
+
 function isValidDate(v) {
-  return v instanceof Date && !Number.isNaN(v.getTime());
+  return toDate(v) !== null;
 }
 
 /** Devuelve el valor normalizado de (fila, col) de forma segura. */
@@ -98,11 +120,11 @@ export function findDateBlocks(ws, dateRow, { maxCol, minLength = 7 } = {}) {
   const blocks = [];
   let current = null;
   for (let c = 1; c <= limit + 1; c += 1) {
-    const v = c <= limit ? at(ws, dateRow, c) : null;
-    if (isValidDate(v)) {
+    const parsed = c <= limit ? toDate(at(ws, dateRow, c)) : null;
+    if (parsed) {
       if (!current) current = { start: c, end: c, dates: [] };
       current.end = c;
-      current.dates.push(v);
+      current.dates.push(parsed);
     } else if (current) {
       if (current.dates.length >= minLength) blocks.push(current);
       current = null;
@@ -138,4 +160,4 @@ export function lastRowWithValue(ws, col, fromRow) {
   return last;
 }
 
-export { at as rawAt, text as textAt, isValidDate };
+export { at as rawAt, text as textAt, isValidDate, toDate };
