@@ -162,6 +162,19 @@ Instalacion completada.
   Servicio:  systemctl status estadisticas
   Registros: journalctl -u estadisticas -f
   Datos:     ${DATA_DIR}
+FIN
+
+if [[ -d "/etc/letsencrypt/live/${DOMAIN}" ]]; then
+  cat <<FIN
+
+El dominio ya tiene certificado, asi que el sitio esta listo:
+
+  https://${DOMAIN}
+
+No hace falta ejecutar setup-ssl.sh.
+FIN
+else
+  cat <<FIN
 
 Siguiente paso — emitir el certificado TLS:
 
@@ -170,6 +183,7 @@ Siguiente paso — emitir el certificado TLS:
 Antes de ejecutarlo, confirma que el dominio ${DOMAIN} apunta con un
 registro A (y AAAA si usas IPv6) a la IP publica de este servidor.
 FIN
+fi
 
 if [[ -n "$CREATED_PASSWORD" ]]; then
   cat <<CRED
