@@ -20,6 +20,28 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 log() { printf '\n\033[1;34m==>\033[0m %s\n' "$*"; }
 die() { printf '\n\033[1;31mError:\033[0m %s\n' "$*" >&2; exit 1; }
 
+# ---------------------------------------------------------------------------
+# nginx cambio la sintaxis de HTTP/2 en la version 1.25.1: antes se activaba
+# con "http2" en la linea listen y despues con la directiva "http2 on;".
+# El archivo del repositorio usa la forma nueva; esta funcion lo convierte a la
+# antigua cuando el servidor tiene una version anterior, para que la misma
+# configuracion sirva en cualquier Ubuntu o Debian.
+# ---------------------------------------------------------------------------
+adapt_http2_syntax() {
+  local file="$1"
+  local version newest
+  version="$(nginx -v 2>&1 | sed -n 's#.*nginx/\([0-9][0-9.]*\).*#\1#p')"
+  [[ -n "$version" ]] || return 0
+  newest="$(printf '%s\n%s\n' "$version" "1.25.1" | sort -V | tail -1)"
+  [[ "$newest" == "$version" ]] && return 0   # 1.25.1 o superior: nada que cambiar
+
+  sed -i \
+    -e 's/^\([[:space:]]*\)http2 on;/\1# HTTP\/2 se activa en la linea listen (nginx < 1.25.1)/' \
+    -e 's/^\([[:space:]]*\)listen 443 ssl;/\1listen 443 ssl http2;/' \
+    -e 's/^\([[:space:]]*\)listen \[::\]:443 ssl;/\1listen [::]:443 ssl http2;/' \
+    "$file"
+}
+
 [[ $EUID -eq 0 ]] || die "Ejecuta este script con sudo."
 
 log "Instalando dependencias del sistema"
@@ -112,7 +134,11 @@ server {
 HTTPEOF
 fi
 
-nginx -t
+adapt_http2_syntax "/etc/nginx/sites-available/${DOMAIN}"
+
+if ! nginx -t; then
+  die "La configuracion de nginx no es valida. Revisa /etc/nginx/sites-available/${DOMAIN}"
+fi
 systemctl reload nginx
 
 log "Configurando el firewall"
