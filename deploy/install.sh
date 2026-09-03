@@ -73,6 +73,14 @@ if [[ "$REPO_DIR" != "$APP_DIR" ]]; then
 fi
 chown -R "$APP_USER:$APP_USER" "$APP_DIR" "$DATA_DIR"
 
+# El repositorio queda a nombre del usuario de servicio, asi que git se negaria
+# a operar sobre el como root ("dubious ownership"). Se registra la excepcion
+# para que `sudo git pull` funcione en las actualizaciones.
+if [[ -d "$APP_DIR/.git" ]]; then
+  git config --global --add safe.directory "$APP_DIR" 2>/dev/null || true
+  sudo -u "$APP_USER" git config --global --add safe.directory "$APP_DIR" 2>/dev/null || true
+fi
+
 log "Instalando dependencias de la aplicacion"
 sudo -u "$APP_USER" bash -lc "cd '$APP_DIR/server' && npm ci --omit=dev"
 sudo -u "$APP_USER" bash -lc "cd '$APP_DIR/web' && npm ci && npm run build"

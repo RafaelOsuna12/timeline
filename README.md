@@ -84,6 +84,11 @@ Solo actualiza el código: la base de datos y los archivos cargados no se tocan.
 Toma por defecto la misma rama con la que se clonó; para usar otra,
 `sudo BRANCH=main bash /opt/estadisticas/deploy/deploy.sh`.
 
+`deploy.sh` descarga los cambios con el usuario del servicio, que es el dueño
+del repositorio. Si prefieres actualizar a mano con `sudo git pull`, git pedirá
+antes registrar la excepción de propiedad:
+`sudo git config --global --add safe.directory /opt/estadisticas`.
+
 ### Respaldos
 
 ```bash
