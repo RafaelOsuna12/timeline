@@ -87,9 +87,21 @@ uploads.post('/', requireUpload, (req, res) => {
         err.code === 'LIMIT_FILE_SIZE'
           ? `El archivo supera el limite de ${config.maxUploadMb} MB.`
           : err.message || 'No se pudo recibir el archivo.';
+      // Sin esta traza, un rechazo de la carga no deja rastro en el servidor y
+      // solo se ve como un error generico en el navegador.
+      console.warn(
+        `[upload] rechazado (${req.user?.username || 'sin usuario'}): ${message}` +
+          ` | archivo="${err.field || ''}" code=${err.code || 'n/d'}`
+      );
       return res.status(400).json({ error: message });
     }
-    if (!req.file) return res.status(400).json({ error: 'No se recibio ningun archivo.' });
+    if (!req.file) {
+      console.warn(`[upload] peticion sin archivo de ${req.user?.username || 'sin usuario'}`);
+      return res.status(400).json({ error: 'No se recibio ningun archivo.' });
+    }
+    console.log(
+      `[upload] recibido "${req.file.originalname}" (${(req.file.size / 1048576).toFixed(1)} MB) de ${req.user.username}`
+    );
 
     const job = createJob({
       originalName: req.file.originalname,
