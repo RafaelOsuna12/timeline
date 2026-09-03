@@ -178,7 +178,10 @@ las agregaciones se calculan al vuelo, de forma que cualquier corte por región,
 equipo, canal o tienda sale de los mismos datos y no puede desincronizarse.
 
 En producción el mismo proceso de Node sirve la API y el frontend compilado;
-nginx termina el TLS y hace de proxy inverso hacia `127.0.0.1:4000`.
+nginx termina el TLS y hace de proxy inverso hacia `127.0.0.1:4000`. Si ese
+puerto ya está ocupado (por ejemplo por un contenedor de Docker), la instalación
+elige el siguiente libre y ajusta nginx en consecuencia; el puerto en uso queda
+en `server/.env` y se muestra al terminar de instalar.
 
 ### Seguridad
 

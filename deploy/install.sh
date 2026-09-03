@@ -5,7 +5,8 @@
 # Ejecutar como root (o con sudo) UNA sola vez:
 #     sudo bash deploy/install.sh
 #
-# Deja el sistema corriendo en http://127.0.0.1:4000 detras de nginx.
+# Deja el sistema corriendo en 127.0.0.1 detras de nginx. Si el puerto 4000
+# esta ocupado, se elige automaticamente el siguiente libre.
 # El certificado TLS se emite despues con deploy/setup-ssl.sh.
 # ---------------------------------------------------------------------------
 set -euo pipefail
@@ -15,6 +16,7 @@ APP_DIR="${APP_DIR:-/opt/estadisticas}"
 DATA_DIR="${DATA_DIR:-/var/lib/estadisticas}"
 APP_USER="${APP_USER:-estadisticas}"
 NODE_MAJOR="${NODE_MAJOR:-20}"
+APP_PORT="${APP_PORT:-4000}"
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 log() { printf '\n\033[1;34m==>\033[0m %s\n' "$*"; }
@@ -27,6 +29,27 @@ die() { printf '\n\033[1;31mError:\033[0m %s\n' "$*" >&2; exit 1; }
 # antigua cuando el servidor tiene una version anterior, para que la misma
 # configuracion sirva en cualquier Ubuntu o Debian.
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# El puerto del backend puede estar ocupado por otro servicio del servidor
+# (es habitual con contenedores de Docker publicando puertos altos). En vez de
+# fallar al arrancar, se busca el siguiente puerto libre.
+# ---------------------------------------------------------------------------
+port_in_use() {
+  # Se prueba conectando: no depende de que ss o lsof esten instalados, y mide
+  # exactamente lo que importa, que es si 127.0.0.1:<puerto> ya esta atendido.
+  (exec 3<>"/dev/tcp/127.0.0.1/$1") >/dev/null 2>&1
+}
+
+find_free_port() {
+  local candidate="$1"
+  local limit=$(( candidate + 50 ))
+  while (( candidate < limit )) && port_in_use "$candidate"; do
+    candidate=$(( candidate + 1 ))
+  done
+  port_in_use "$candidate" && die "No se encontro un puerto libre a partir de $1."
+  printf '%s' "$candidate"
+}
+
 adapt_http2_syntax() {
   local file="$1"
   local version newest
@@ -85,6 +108,15 @@ log "Instalando dependencias de la aplicacion"
 sudo -u "$APP_USER" bash -lc "cd '$APP_DIR/server' && npm ci --omit=dev"
 sudo -u "$APP_USER" bash -lc "cd '$APP_DIR/web' && npm ci && npm run build"
 
+if [[ -f "$APP_DIR/server/.env" ]]; then
+  # Se respeta el puerto ya configurado para no romper una instalacion en uso.
+  APP_PORT="$(sed -n 's/^PORT=\([0-9]\+\).*/\1/p' "$APP_DIR/server/.env" | head -1)"
+  APP_PORT="${APP_PORT:-4000}"
+else
+  APP_PORT="$(find_free_port "$APP_PORT")"
+  [[ "$APP_PORT" == "4000" ]] || log "El puerto 4000 esta ocupado: se usara el $APP_PORT"
+fi
+
 if [[ ! -f "$APP_DIR/server/.env" ]]; then
   log "Generando la configuracion inicial (.env)"
   JWT_SECRET="$(openssl rand -hex 48)"
@@ -92,7 +124,7 @@ if [[ ! -f "$APP_DIR/server/.env" ]]; then
   cat > "$APP_DIR/server/.env" <<ENVEOF
 NODE_ENV=production
 HOST=127.0.0.1
-PORT=4000
+PORT=${APP_PORT}
 TRUST_PROXY=true
 PUBLIC_URL=https://${DOMAIN}
 
@@ -119,10 +151,30 @@ log "Instalando el servicio de systemd"
 sed "s#/opt/estadisticas#${APP_DIR}#g; s#/var/lib/estadisticas#${DATA_DIR}#g; s#User=estadisticas#User=${APP_USER}#; s#Group=estadisticas#Group=${APP_USER}#" \
   "$APP_DIR/deploy/systemd/estadisticas.service" > /etc/systemd/system/estadisticas.service
 systemctl daemon-reload
-systemctl enable --now estadisticas
+systemctl enable estadisticas >/dev/null
+systemctl restart estadisticas
+
+# Arrancar el servicio no basta: si el puerto esta ocupado o falta una
+# dependencia, systemd lo reinicia en bucle y la instalacion parecia correcta.
+log "Comprobando que el servicio responda"
+service_ok=false
+for _ in $(seq 1 15); do
+  if curl -fsS --max-time 3 "http://127.0.0.1:${APP_PORT}/api/health" >/dev/null 2>&1; then
+    service_ok=true
+    break
+  fi
+  sleep 1
+done
+if [[ "$service_ok" != true ]]; then
+  echo
+  journalctl -u estadisticas -n 25 --no-pager || true
+  die "El servicio no responde en el puerto ${APP_PORT}. Revisa el registro de arriba."
+fi
+log "El servicio responde en 127.0.0.1:${APP_PORT}"
 
 log "Configurando nginx"
-sed "s/estadisticas\.honorlab\.dev/${DOMAIN}/g" \
+sed -e "s/estadisticas\.honorlab\.dev/${DOMAIN}/g" \
+    -e "s#127\.0\.0\.1:4000#127.0.0.1:${APP_PORT}#g" \
   "$APP_DIR/deploy/nginx/estadisticas.honorlab.dev.conf" > "/etc/nginx/sites-available/${DOMAIN}"
 ln -sf "/etc/nginx/sites-available/${DOMAIN}" "/etc/nginx/sites-enabled/${DOMAIN}"
 rm -f /etc/nginx/sites-enabled/default
@@ -162,6 +214,7 @@ Instalacion completada.
   Servicio:  systemctl status estadisticas
   Registros: journalctl -u estadisticas -f
   Datos:     ${DATA_DIR}
+  Puerto:    127.0.0.1:${APP_PORT} (solo local; nginx lo publica)
 FIN
 
 if [[ -d "/etc/letsencrypt/live/${DOMAIN}" ]]; then
