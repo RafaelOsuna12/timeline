@@ -14,12 +14,34 @@
  *   - Forecast : cierre estimado al ultimo dia del mes.
  */
 
+/**
+ * Clasificacion de desempeño.
+ *
+ * El 60% es el minimo requerido: por debajo de esa linea el resultado se
+ * considera fuera de meta, sin matices. De ahi hacia arriba hay tres escalones
+ * antes del objetivo, para distinguir a quien apenas cumple de quien esta a un
+ * paso de lograrlo.
+ */
 export const STATUS = {
-  ON_TRACK: 'en_meta',
-  AT_RISK: 'en_riesgo',
-  OFF_TRACK: 'fuera_de_meta',
+  ON_TARGET: 'en_meta',       // 100% o mas
+  IDEAL: 'ideal',             // 90% a 99%
+  REGULAR: 'regular',         // 70% a 89%
+  MINIMUM: 'minimo',          // 60% a 69%
+  BELOW: 'fuera_de_meta',     // menos de 60%
   NO_TARGET: 'sin_target',
 };
+
+/** Umbral inferior de cada banda, de mayor a menor. */
+export const STATUS_BANDS = [
+  { status: STATUS.ON_TARGET, min: 1 },
+  { status: STATUS.IDEAL, min: 0.9 },
+  { status: STATUS.REGULAR, min: 0.7 },
+  { status: STATUS.MINIMUM, min: 0.6 },
+  { status: STATUS.BELOW, min: Number.NEGATIVE_INFINITY },
+];
+
+/** Minimo exigido: por debajo de este porcentaje el resultado no es aceptable. */
+export const MINIMUM_ACHIEVEMENT = 0.6;
 
 const round = (n, d = 2) => {
   if (n === null || n === undefined || !Number.isFinite(n)) return null;
@@ -111,13 +133,18 @@ export function forecastMonth(series, { year, month, cutoffDay, daysInMonth }) {
   };
 }
 
-/** Clasificacion semaforo a partir del cierre proyectado contra el target. */
+/**
+ * Clasificacion a partir del cierre proyectado contra el target.
+ *
+ * Se evalua sobre la proyeccion y no sobre el avance del dia porque a mitad de
+ * mes el acumulado siempre es bajo: clasificar por avance marcaria a todo el
+ * equipo fuera de meta el dia 10. Al cierre del mes ambos valores coinciden.
+ */
 export function statusOf(projected, target) {
   if (!target || target <= 0) return STATUS.NO_TARGET;
   const ratio = projected / target;
-  if (ratio >= 1) return STATUS.ON_TRACK;
-  if (ratio >= 0.9) return STATUS.AT_RISK;
-  return STATUS.OFF_TRACK;
+  const band = STATUS_BANDS.find((b) => ratio >= b.min);
+  return band ? band.status : STATUS.BELOW;
 }
 
 /**

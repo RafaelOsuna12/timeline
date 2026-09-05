@@ -61,19 +61,56 @@ export function dateLabel(iso) {
   return dt.toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
+/**
+ * Bandas de desempeño sobre el cierre proyectado. El 60% es el minimo
+ * requerido: por debajo esta fuera de meta.
+ */
 export const STATUS_LABELS = {
-  en_meta: 'En meta',
-  en_riesgo: 'En riesgo',
-  fuera_de_meta: 'Fuera de meta',
+  en_meta: 'En meta',          // 100% o mas
+  ideal: 'Ideal',              // 90% a 99%
+  regular: 'Regular',          // 70% a 89%
+  minimo: 'Minimo',            // 60% a 69%
+  fuera_de_meta: 'Fuera de meta', // menos de 60%
   sin_target: 'Sin target',
 };
 
+export const STATUS_RANGES = {
+  en_meta: '100% o mas',
+  ideal: '90% a 99%',
+  regular: '70% a 89%',
+  minimo: '60% a 69%',
+  fuera_de_meta: 'menos de 60%',
+  sin_target: 'sin objetivo asignado',
+};
+
+/**
+ * Tono de estado. Solo hay cuatro colores reservados para estado, asi que
+ * "En meta" e "Ideal" comparten el verde y se distinguen por la etiqueta y por
+ * el punto relleno o hueco de la pastilla.
+ */
 export const STATUS_TONE = {
   en_meta: 'good',
-  en_riesgo: 'warning',
+  ideal: 'good',
+  regular: 'warning',
+  minimo: 'serious',
   fuera_de_meta: 'critical',
   sin_target: 'neutral',
 };
+
+/** Tono a partir del estatus, para tarjetas e indicadores. */
+export function statusTone(status) {
+  return STATUS_TONE[status] || 'neutral';
+}
+
+/** Mismas bandas aplicadas a un porcentaje suelto (celdas de ACH%). */
+export function achTone(value) {
+  if (value === null || value === undefined) return 'neutral';
+  if (value >= 1) return 'good';
+  if (value >= 0.9) return 'good';
+  if (value >= 0.7) return 'warning';
+  if (value >= 0.6) return 'serious';
+  return 'critical';
+}
 
 /** Los 8 slots categoricos, en el orden fijo de la paleta validada. */
 export const SERIES = [

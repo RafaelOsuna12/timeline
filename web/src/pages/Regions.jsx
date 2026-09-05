@@ -6,7 +6,7 @@ import AppShell from '../components/AppShell.jsx';
 import FilterBar from '../components/FilterBar.jsx';
 import { AchCell, BarCell, Card, DataTable, Empty, ErrorBox, Kpi, Spinner, StatusPill, ViewToggle } from '../components/ui.jsx';
 import { RankingBars } from '../components/charts/index.jsx';
-import { d1, d2, n, pct } from '../utils/format.js';
+import { d1, d2, n, pct, statusTone } from '../utils/format.js';
 
 export default function Regions() {
   const { filters, hasData } = useData();
@@ -32,7 +32,7 @@ export default function Regions() {
                 meta={`${n(r.so)} de ${n(r.target)} pzs · cierre proy. ${n(r.forecast)}`}
                 progress={r.ach}
                 marker={r.timeProgress}
-                tone={r.status === 'en_meta' ? 'good' : r.status === 'en_riesgo' ? 'warning' : 'critical'}
+                tone={statusTone(r.status)}
               />
             ))}
           </section>

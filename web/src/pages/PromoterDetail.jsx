@@ -5,7 +5,7 @@ import { useData, useQuery } from '../app/context.jsx';
 import AppShell from '../components/AppShell.jsx';
 import { AchCell, Card, DataTable, Empty, ErrorBox, Kpi, Spinner, StatusPill } from '../components/ui.jsx';
 import { AdvanceCurve, DailyBars, ShareBars } from '../components/charts/index.jsx';
-import { d1, d2, n, pct } from '../utils/format.js';
+import { d1, d2, n, pct, statusTone } from '../utils/format.js';
 
 export default function PromoterDetail() {
   const { id } = useParams();
@@ -63,7 +63,7 @@ function Detail({ data }) {
           value={n(p.forecast)}
           unit="pzs"
           meta={`${pct(p.projectedAch)} del target`}
-          tone={p.status === 'en_meta' ? 'good' : p.status === 'en_riesgo' ? 'warning' : 'critical'}
+          tone={statusTone(p.status)}
         />
         <Kpi label="Sell-out total" value={n(p.soAll)} unit="pzs" meta={`Incluye ${n(p.soIot)} pzs de IOT`} />
         <Kpi

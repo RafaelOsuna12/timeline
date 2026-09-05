@@ -28,6 +28,9 @@ nginx, y para actualizarse subiendo el archivo desde el propio navegador.
 - **Modelos y mezcla** — participación de cada modelo foco, portafolio completo
   por canal y desglose por versión de operador y color.
 - **Tiendas** — desempeño por punto de venta.
+- **Clasificación en cinco bandas** — En meta (100 %), Ideal (90–99 %), Regular
+  (70–89 %), Mínimo (60–69 %) y Fuera de meta por debajo del 60 %, que es el
+  mínimo requerido.
 - **Asistencia y cero venta** — cobertura de piso y mapa de calor por promotor y
   día, distinguiendo la ausencia del día en piso sin venta.
 - **Avance entre cargas** — cuánto se movió cada equipo entre dos

@@ -9,7 +9,7 @@ import AppShell from '../components/AppShell.jsx';
 import FilterBar from '../components/FilterBar.jsx';
 import { AchCell, BarCell, Card, DataTable, Empty, ErrorBox, Kpi, Spinner, StatusPill, ViewToggle } from '../components/ui.jsx';
 import { AdvanceCurve, DailyBars, RankingBars, ShareBars, WeekdayProfile } from '../components/charts/index.jsx';
-import { d1, d2, n, pct } from '../utils/format.js';
+import { d1, d2, n, pct, statusTone } from '../utils/format.js';
 
 export default function Overview() {
   const { filters, hasData } = useData();
@@ -84,7 +84,7 @@ function OverviewBody({ data, refreshing, filters }) {
           meta={`${pct(t.projectedAch)} del target · ${t.projectedGap >= 0 ? 'sobre' : 'bajo'} meta por ${n(
             Math.abs(t.projectedGap ?? 0)
           )} pzs`}
-          tone={t.status === 'en_meta' ? 'good' : t.status === 'en_riesgo' ? 'warning' : 'critical'}
+          tone={statusTone(t.status)}
         />
         <Kpi
           label="Ritmo diario"

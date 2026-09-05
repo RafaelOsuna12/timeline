@@ -81,20 +81,42 @@ La proyección quedó por debajo porque agosto tuvo una última semana fuerte. E
 el comportamiento esperado: el modelo no anticipa cierres de mes atípicos, los
 refleja conforme ocurren.
 
-## Semáforo de estatus
+## Clasificación de desempeño
 
-Se aplica sobre el **cierre proyectado**, no sobre el avance actual: lo que
-importa es cómo va a terminar el mes, no dónde está hoy.
+El **60 % es el mínimo requerido**: por debajo de esa línea el resultado está
+fuera de meta, sin matices. De ahí hacia arriba hay tres escalones antes del
+objetivo, para distinguir a quien apenas cumple de quien está a un paso.
 
-| Estatus | Regla |
-|---|---|
-| En meta | Cierre proyectado ≥ 100 % del target |
-| En riesgo | Entre 90 % y 100 % |
-| Fuera de meta | Menos de 90 % |
-| Sin target | La entidad no tiene target asignado |
+| Estatus | Rango | Color |
+|---|---|---|
+| En meta | 100 % o más | verde, punto lleno |
+| Ideal | 90 % a 99 % | verde, punto hueco |
+| Regular | 70 % a 89 % | ámbar |
+| Mínimo | 60 % a 69 % | naranja |
+| Fuera de meta | menos de 60 % | rojo |
+| Sin target | sin objetivo asignado | gris |
 
-El color siempre va acompañado del texto: el estado nunca depende únicamente
-del color.
+Se evalúa sobre el **cierre proyectado**, no sobre el avance del día. La razón
+es que a mitad de mes el acumulado siempre es bajo por construcción: clasificar
+por avance marcaría a todo el equipo fuera de meta el día 10, cuando en realidad
+va en ritmo. Al cierre del mes ambos valores coinciden.
+
+"En meta" e "Ideal" comparten el verde porque solo hay cuatro colores reservados
+para estado; se distinguen por la etiqueta y por el punto lleno o hueco, de modo
+que la diferencia nunca depende únicamente del color.
+
+Las mismas bandas tiñen la columna ACH% de las tablas, así que un porcentaje y
+su pastilla siempre cuentan lo mismo.
+
+### Alertas
+
+- **Regiones**: se avisa de cualquiera que no proyecte el 100 %, con gravedad
+  según la banda. Son tres, así que la lista no se satura.
+- **Supervisores**: solo por debajo del 70 % (bandas Mínimo y Fuera de meta).
+  Con el umbral en 90 % aparecerían casi todos y la lista dejaría de señalar
+  nada.
+- **Promotores**: sin venta alguna, con la mitad o más de sus días en cero, o
+  sin asistencia registrada en el mes.
 
 ## Curva de target
 

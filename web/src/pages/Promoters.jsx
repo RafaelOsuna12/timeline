@@ -10,16 +10,18 @@ import { d1, d2, n, pct } from '../utils/format.js';
 
 const GROUPS = {
   todos: () => true,
-  riesgo: (p) => p.status === 'fuera_de_meta' || p.status === 'en_riesgo',
-  meta: (p) => p.status === 'en_meta',
+  fuera: (p) => p.status === 'fuera_de_meta',
+  bajo_ideal: (p) => p.status === 'minimo' || p.status === 'regular',
+  meta: (p) => p.status === 'en_meta' || p.status === 'ideal',
   sin_venta: (p) => p.so === 0,
   sin_asistencia: (p) => p.attendanceDays === 0,
 };
 
 const GROUP_LABELS = {
   todos: 'Todos',
-  riesgo: 'En riesgo o fuera de meta',
-  meta: 'En meta',
+  fuera: 'Fuera de meta (bajo 60%)',
+  bajo_ideal: 'Minimo y regular (60% a 89%)',
+  meta: 'Ideal y en meta (90% o mas)',
   sin_venta: 'Sin venta de modelos foco',
   sin_asistencia: 'Sin asistencia registrada',
 };

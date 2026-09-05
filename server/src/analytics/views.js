@@ -261,9 +261,18 @@ function buildAlerts(ctx, promoters, supervisors, regions) {
   const remaining = Math.max(0, ctx.daysInMonth - ctx.cutoffDay);
   const closed = remaining === 0;
 
+  // Gravedad de la alerta segun la banda en la que cae el cierre proyectado.
+  const alertLevel = (status) => {
+    if (status === STATUS.BELOW) return 'critical';
+    if (status === STATUS.MINIMUM) return 'serious';
+    if (status === STATUS.REGULAR) return 'warning';
+    return null;
+  };
+
   for (const r of regions) {
-    if (r.status === STATUS.OFF_TRACK || r.status === STATUS.AT_RISK) {
-      const level = r.status === STATUS.OFF_TRACK ? 'critical' : 'warning';
+    // Las regiones son pocas: se avisa desde que no proyectan el objetivo.
+    const level = alertLevel(r.status) || (r.status === STATUS.IDEAL ? 'warning' : null);
+    if (level) {
       alerts.push({
         level,
         scope: 'region',
@@ -281,9 +290,12 @@ function buildAlerts(ctx, promoters, supervisors, regions) {
   }
 
   for (const s of supervisors) {
-    if (s.target > 0 && s.status === STATUS.OFF_TRACK) {
+    // Para supervisores solo se avisa por debajo del 70%: con el umbral en 90%
+    // aparecerian casi todos y la lista dejaria de señalar nada.
+    const level = s.status === STATUS.BELOW ? 'critical' : s.status === STATUS.MINIMUM ? 'serious' : null;
+    if (s.target > 0 && level) {
       alerts.push({
-        level: 'warning',
+        level,
         scope: 'supervisor',
         entity: s.name,
         title: `${s.name}: ${pct(s.ach)} de avance`,

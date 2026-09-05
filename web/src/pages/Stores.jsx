@@ -19,7 +19,7 @@ export default function Stores() {
     if (!data) return null;
     const rows = data.stores;
     const withTarget = rows.filter((s) => s.target > 0);
-    const onTrack = rows.filter((s) => s.status === 'en_meta').length;
+    const onTrack = rows.filter((s) => s.status === 'en_meta' || s.status === 'ideal').length;
     const zero = rows.filter((s) => s.so === 0).length;
     return {
       count: rows.length,
@@ -50,7 +50,12 @@ export default function Stores() {
         <div className={`stack${refreshing ? ' is-refreshing' : ''}`}>
           <section className="kpis">
             <Kpi label="Tiendas en el corte" value={n(stats.count)} meta="Con al menos un promotor asignado" />
-            <Kpi label="Tiendas en meta" value={n(stats.onTrack)} meta={`${pct(stats.count ? stats.onTrack / stats.count : null)} del total`} tone="good" />
+            <Kpi
+              label="Tiendas en meta o ideal"
+              value={n(stats.onTrack)}
+              meta={`${pct(stats.count ? stats.onTrack / stats.count : null)} del total · 90% o mas del target`}
+              tone="good"
+            />
             <Kpi label="Tiendas sin venta" value={n(stats.zero)} meta="Sin una sola pieza de modelos foco" tone={stats.zero ? 'critical' : undefined} />
             <Kpi label="Promedio por tienda" value={n(stats.avg)} unit="pzs" meta="Solo tiendas con target asignado" />
           </section>

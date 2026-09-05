@@ -1,6 +1,6 @@
 /** Piezas de interfaz reutilizables del tablero. */
 import { useMemo, useState } from 'react';
-import { STATUS_LABELS, STATUS_TONE, n, pct } from '../utils/format.js';
+import { STATUS_LABELS, STATUS_RANGES, achTone, statusTone, n, pct } from '../utils/format.js';
 
 export function Card({ title, hint, actions, children, flush = false, className = '' }) {
   return (
@@ -56,10 +56,13 @@ export function Kpi({ label, value, unit, meta, progress, marker, tone, compact 
 }
 
 export function StatusPill({ status }) {
-  const tone = STATUS_TONE[status] || 'neutral';
+  const tone = statusTone(status);
+  // "Ideal" comparte el verde con "En meta": el punto hueco marca que aun no
+  // se alcanza el objetivo, sin depender solo del color.
+  const hollow = status === 'ideal';
   return (
-    <span className={`pill pill--${tone}`}>
-      <span className="pill__dot" aria-hidden="true" />
+    <span className={`pill pill--${tone}`} title={STATUS_RANGES[status] || ''}>
+      <span className={`pill__dot${hollow ? ' pill__dot--hollow' : ''}`} aria-hidden="true" />
       {STATUS_LABELS[status] || status}
     </span>
   );
@@ -111,7 +114,7 @@ export function BarCell({ value, max, format = n, color = 'var(--series-1)' }) {
 /** Celda de ACH% con semaforo: color + texto, nunca color solo. */
 export function AchCell({ value }) {
   if (value === null || value === undefined) return <span className="muted">—</span>;
-  const tone = value >= 1 ? 'good' : value >= 0.9 ? 'warning' : 'critical';
+  const tone = achTone(value);
   return (
     <span className="tnum" style={{ color: `var(--status-${tone}-ink)`, fontWeight: 560 }}>
       {pct(value)}
