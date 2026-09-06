@@ -995,15 +995,13 @@ table.data td.trunc {
   padding: 28px 26px;
 }
 
+/* La marca va suelta, sin recuadro: al heredar el color del texto queda negra
+   en modo claro y blanca en modo oscuro, que es justo lo que distingue a las
+   dos versiones del activo original. */
 .login__logo {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: var(--sidebar);
-  color: var(--sidebar-ink);
-  display: grid;
-  place-items: center;
-  margin-bottom: 16px;
+  display: block;
+  color: var(--text-primary);
+  margin-bottom: 22px;
 }
 
 .form-error {
@@ -1090,11 +1088,21 @@ table.data td.trunc {
   }
 }
 
+.print-only {
+  display: none;
+}
+
 @media print {
   .sidebar,
   .filterbar,
   .no-print {
     display: none !important;
+  }
+
+  .print-only {
+    display: block;
+    color: #000;
+    margin-bottom: 10px;
   }
 
   .card {

@@ -85,6 +85,9 @@ export function AppShell({ title, subtitle, actions, filterBar, children }) {
         <header className="topbar">
           <div className="topbar__head">
             <div>
+              {/* Solo al imprimir: la barra lateral no sale en papel y con ella
+                  se iria la marca del reporte. */}
+              <Brand height={15} className="print-only" />
               <h1 className="page-title">{title}</h1>
               <p className="page-subtitle">
                 {subtitle}

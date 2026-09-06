@@ -1,7 +1,7 @@
 /** Pantalla de acceso. */
 import { useState } from 'react';
 import { useAuth } from '../app/context.jsx';
-import { BrandMark } from '../components/Brand.jsx';
+import { Brand } from '../components/Brand.jsx';
 
 export default function Login() {
   const { login } = useAuth();
@@ -26,9 +26,7 @@ export default function Login() {
   return (
     <div className="login">
       <form className="login__card" onSubmit={submit}>
-        <div className="login__logo">
-          <BrandMark size={22} />
-        </div>
+        <Brand height={26} className="login__logo" />
         <h1 style={{ margin: '0 0 4px', fontSize: 19, fontWeight: 640, letterSpacing: '-0.015em' }}>
           Avance de ventas
         </h1>
