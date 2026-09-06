@@ -1,12 +1,13 @@
 /** Tabla maestra de promotores, con todas las metricas del mes. */
 import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { api, downloadCsv } from '../api.js';
 import { useData, useQuery } from '../app/context.jsx';
 import AppShell from '../components/AppShell.jsx';
 import FilterBar from '../components/FilterBar.jsx';
 import { AchCell, BarCell, Card, DataTable, Empty, ErrorBox, Kpi, Spinner, StatusPill } from '../components/ui.jsx';
 import { d1, d2, n, pct } from '../utils/format.js';
+import { promoterPath, useFilteredLink, useFilteredNavigate } from '../app/links.js';
 
 const GROUPS = {
   todos: () => true,
@@ -28,7 +29,8 @@ const GROUP_LABELS = {
 
 export default function Promoters() {
   const { filters, hasData } = useData();
-  const navigate = useNavigate();
+  const link = useFilteredLink();
+  const navigate = useFilteredNavigate();
   const [group, setGroup] = useState('todos');
 
   const { data, error, loading, refreshing } = useQuery(
@@ -90,7 +92,7 @@ export default function Promoters() {
                   key: 'name',
                   label: 'Promotor',
                   cellClass: 'name',
-                  render: (p) => <Link to={`/promotores/${encodeURIComponent(p.key)}`}>{p.name}</Link>,
+                  render: (p) => <Link to={link(promoterPath(p.key))}>{p.name}</Link>,
                 },
                 { key: 'store', label: 'Tienda', cellClass: 'dim' },
                 { key: 'channel', label: 'Canal', cellClass: 'dim' },
@@ -110,7 +112,7 @@ export default function Promoters() {
               ]}
               rows={rows}
               initialSort={{ key: 'so', dir: 'desc' }}
-              onRowClick={(p) => navigate(`/promotores/${encodeURIComponent(p.key)}`)}
+              onRowClick={(p) => navigate(promoterPath(p.key))}
             />
           </Card>
         </div>

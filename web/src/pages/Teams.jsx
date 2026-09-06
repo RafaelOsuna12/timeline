@@ -10,6 +10,7 @@ import AppShell from '../components/AppShell.jsx';
 import FilterBar from '../components/FilterBar.jsx';
 import { AchCell, Card, DataTable, Empty, ErrorBox, Spinner, StatusPill } from '../components/ui.jsx';
 import { d1, n, pct } from '../utils/format.js';
+import { promoterPath, useFilteredLink } from '../app/links.js';
 
 export default function Teams() {
   const { filters, hasData, setFilter } = useData();
@@ -124,6 +125,7 @@ function CmBlock({ cm, onFilter, closed }) {
 }
 
 function PromoterPanel({ supervisor }) {
+  const link = useFilteredLink();
   if (!supervisor) return null;
   return (
     <div style={{ padding: '10px 12px 14px', background: 'var(--wash)' }}>
@@ -136,7 +138,7 @@ function PromoterPanel({ supervisor }) {
             key: 'name',
             label: 'Promotor',
             cellClass: 'name',
-            render: (p) => <Link to={`/promotores/${encodeURIComponent(p.key)}`}>{p.name}</Link>,
+            render: (p) => <Link to={link(promoterPath(p.key))}>{p.name}</Link>,
           },
           { key: 'store', label: 'Tienda', cellClass: 'dim' },
           { key: 'channel', label: 'Canal', cellClass: 'dim' },

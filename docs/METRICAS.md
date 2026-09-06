@@ -159,6 +159,16 @@ dos cosas:
 - Comprobar qué tan buena fue la proyección: se fija el corte en un día pasado y
   se compara la proyección de entonces con lo que realmente ocurrió.
 
+## Elección de periodo
+
+El selector **Periodo** fija el mes que se está analizando y el de
+**Actualización** —visible solo cuando hay más de una carga de ese mes— elige
+una versión concreta. Por defecto se abre en la carga más reciente.
+
+La elección viaja en la dirección del navegador junto con el resto de los
+filtros, de modo que al abrir la ficha de un promotor, volver al listado o
+compartir el enlace se sigue viendo el mismo mes y no el más reciente.
+
 ## Avance entre cargas
 
 Compara dos versiones del mismo periodo (por ejemplo la de hoy contra la de

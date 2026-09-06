@@ -40,8 +40,10 @@ nginx, y para actualizarse subiendo el archivo desde el propio navegador.
 
 - Carga del Excel desde el navegador (arrastrar y soltar), con procesamiento en
   segundo plano y avance en pantalla.
-- Cada carga se guarda como una versión independiente; se puede volver a
-  cualquier actualización anterior.
+- Cada carga se guarda como una versión independiente; el selector **Periodo**
+  cambia de mes y el de **Actualización** elige una carga concreta dentro del
+  mes. El mes elegido se mantiene al navegar (por ejemplo, al abrir la ficha de
+  un promotor) porque viaja en la dirección del navegador.
 - Vista retrospectiva: ver el mes tal como se veía en un día anterior.
 - Exportación a CSV de promotores, supervisores, tiendas y serie diaria.
 - Usuarios con tres roles (administrador, editor, consulta) y bitácora de
@@ -120,10 +122,14 @@ sudo certbot renew --dry-run        # probar la renovación del certificado
 2. **Cargar archivo** → arrastra el `R123_DailySO_Models_*.xlsx` del día.
 3. El sistema detecta solo el mes, los días que tiene y el último día con
    información. Tarda entre 20 y 40 segundos.
-4. El tablero queda actualizado. Los filtros (región, CM, supervisor, canal,
-   búsqueda) se aplican a todas las vistas a la vez y quedan guardados en la
-   dirección del navegador, así que se puede compartir un enlace con el corte
-   exacto que se está viendo.
+4. El tablero queda actualizado. Los filtros (periodo, región, CM, supervisor,
+   canal, búsqueda) se aplican a todas las vistas a la vez y quedan guardados en
+   la dirección del navegador, así que se puede compartir un enlace con el corte
+   exacto que se está viendo —incluido el mes— y volver a él tal cual.
+
+Para revisar un mes cerrado basta con elegirlo en **Periodo**: todo el tablero,
+las fichas de promotor y las exportaciones se quedan en ese mes hasta que se
+cambie.
 
 Subir el archivo cada día habilita además la vista **Avance entre cargas**, que
 muestra cuánto avanzó cada equipo respecto de la actualización anterior.

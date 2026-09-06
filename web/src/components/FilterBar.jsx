@@ -27,6 +27,25 @@ function Select({ label, value, onChange, options, allLabel }) {
 export function FilterBar({ showDaySlider = true }) {
   const { filters, setFilter, clearFilters, catalog, snapshots, activeSnapshot } = useData();
 
+  // Los periodos disponibles y, dentro del elegido, sus cargas. Separarlos deja
+  // a la vista lo que se consulta a diario —de que mes hablamos— y relega la
+  // eleccion de una carga concreta a cuando de verdad hay varias.
+  const periods = useMemo(() => {
+    const seen = new Map();
+    for (const s of snapshots) if (!seen.has(s.periodKey)) seen.set(s.periodKey, s);
+    return [...seen.values()];
+  }, [snapshots]);
+
+  const periodUpdates = useMemo(
+    () => (activeSnapshot ? snapshots.filter((s) => s.periodKey === activeSnapshot.periodKey) : []),
+    [snapshots, activeSnapshot]
+  );
+
+  const latestOfPeriod = (periodKey) => {
+    const match = snapshots.find((s) => s.periodKey === periodKey);
+    return match ? String(match.id) : undefined;
+  };
+
   // Las opciones se encadenan: elegir region reduce CMs, supervisores y tiendas.
   const options = useMemo(() => {
     const rel = catalog?.relations || [];
@@ -68,18 +87,36 @@ export function FilterBar({ showDaySlider = true }) {
   return (
     <div className="no-print">
       <div className="filterbar">
-        {snapshots.length > 1 && (
+        {periods.length > 1 && (
+          <label className="field">
+            <span className="field__label">Periodo</span>
+            <select
+              className="control"
+              style={{ minWidth: 160 }}
+              value={activeSnapshot ? activeSnapshot.periodKey : ''}
+              onChange={(e) => setFilter('snapshot', latestOfPeriod(e.target.value))}
+            >
+              {periods.map((p) => (
+                <option key={p.periodKey} value={p.periodKey}>
+                  {periodLabel(p.periodKey)}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        {periodUpdates.length > 1 && (
           <label className="field">
             <span className="field__label">Actualizacion</span>
             <select
               className="control"
-              style={{ minWidth: 210 }}
-              value={filters.snapshot || (activeSnapshot ? String(activeSnapshot.id) : '')}
+              style={{ minWidth: 190 }}
+              value={activeSnapshot ? String(activeSnapshot.id) : ''}
               onChange={(e) => setFilter('snapshot', e.target.value)}
             >
-              {snapshots.map((s) => (
+              {periodUpdates.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {periodLabel(s.periodKey)} · dia {s.cutoffDay} ({new Date(s.createdAt).toLocaleDateString('es-MX')})
+                  Dia {s.cutoffDay} · cargado {new Date(s.createdAt).toLocaleDateString('es-MX')}
                 </option>
               ))}
             </select>

@@ -1,6 +1,7 @@
 /** Pantalla de acceso. */
 import { useState } from 'react';
 import { useAuth } from '../app/context.jsx';
+import { BrandMark } from '../components/Brand.jsx';
 
 export default function Login() {
   const { login } = useAuth();
@@ -25,10 +26,8 @@ export default function Login() {
   return (
     <div className="login">
       <form className="login__card" onSubmit={submit}>
-        <div className="login__logo" aria-hidden="true">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.4" strokeLinecap="round">
-            <path d="M4 20V12M10 20V6M16 20v-5M22 20V9" />
-          </svg>
+        <div className="login__logo">
+          <BrandMark size={22} />
         </div>
         <h1 style={{ margin: '0 0 4px', fontSize: 19, fontWeight: 640, letterSpacing: '-0.015em' }}>
           Avance de ventas

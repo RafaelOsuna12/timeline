@@ -3,7 +3,6 @@
  * Explica si un equipo no llega por falta de cobertura o por falta de conversion.
  */
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { useData, useQuery } from '../app/context.jsx';
 import AppShell from '../components/AppShell.jsx';
@@ -11,10 +10,11 @@ import FilterBar from '../components/FilterBar.jsx';
 import { Card, DataTable, Empty, ErrorBox, Kpi, Spinner, ViewToggle } from '../components/ui.jsx';
 import { DailyBars, HeatLegend, Heatmap } from '../components/charts/index.jsx';
 import { d2, n, pct } from '../utils/format.js';
+import { promoterPath, useFilteredNavigate } from '../app/links.js';
 
 export default function Attendance() {
   const { filters, hasData } = useData();
-  const navigate = useNavigate();
+  const navigate = useFilteredNavigate();
   const [view, setView] = useState('chart');
   const [limit, setLimit] = useState(40);
 
@@ -122,7 +122,7 @@ export default function Attendance() {
                   days={data.context.daysInMonth}
                   cutoffDay={data.context.cutoffDay}
                   max={stats.maxSo}
-                  onSelect={(row) => navigate(`/promotores/${encodeURIComponent(row.key)}`)}
+                  onSelect={(row) => navigate(promoterPath(row.key))}
                 />
                 <p className="card__hint" style={{ marginTop: 10 }}>
                   Mostrando {heatRows.length} de {data.promoters.length} promotores, ordenados por menor cobertura.
@@ -142,7 +142,7 @@ export default function Attendance() {
                 ]}
                 rows={data.promoters}
                 initialSort={{ key: 'coverage', dir: 'asc' }}
-                onRowClick={(r) => navigate(`/promotores/${encodeURIComponent(r.key)}`)}
+                onRowClick={(r) => navigate(promoterPath(r.key))}
               />
             )}
           </Card>

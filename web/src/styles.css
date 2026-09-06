@@ -200,6 +200,12 @@ textarea {
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.sidebar__logo {
+  display: block;
+  color: var(--sidebar-ink);
+  margin-bottom: 12px;
+}
+
 .sidebar__title {
   font-size: 15px;
   font-weight: 650;
@@ -993,7 +999,8 @@ table.data td.trunc {
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: var(--series-1);
+  background: var(--sidebar);
+  color: var(--sidebar-ink);
   display: grid;
   place-items: center;
   margin-bottom: 16px;

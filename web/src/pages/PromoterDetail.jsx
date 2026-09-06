@@ -6,9 +6,11 @@ import AppShell from '../components/AppShell.jsx';
 import { AchCell, Card, DataTable, Empty, ErrorBox, Kpi, Spinner, StatusPill } from '../components/ui.jsx';
 import { AdvanceCurve, DailyBars, ShareBars } from '../components/charts/index.jsx';
 import { d1, d2, n, pct, statusTone } from '../utils/format.js';
+import { useFilteredLink } from '../app/links.js';
 
 export default function PromoterDetail() {
   const { id } = useParams();
+  const link = useFilteredLink();
   const { filters, hasData } = useData();
   const { data, error, loading } = useQuery(
     (signal) => api.promoter(id, filters, signal),
@@ -21,7 +23,7 @@ export default function PromoterDetail() {
       title={data ? data.promoter.name : 'Promotor'}
       subtitle={data ? `${data.promoter.store} · ${data.promoter.channel}` : ''}
       actions={
-        <Link to="/promotores" className="btn btn--sm">
+        <Link to={link('/promotores')} className="btn btn--sm">
           Volver al listado
         </Link>
       }

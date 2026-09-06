@@ -10,6 +10,7 @@ import FilterBar from '../components/FilterBar.jsx';
 import { AchCell, BarCell, Card, DataTable, Empty, ErrorBox, Kpi, Spinner, StatusPill, ViewToggle } from '../components/ui.jsx';
 import { AdvanceCurve, DailyBars, RankingBars, ShareBars, WeekdayProfile } from '../components/charts/index.jsx';
 import { d1, d2, n, pct, statusTone } from '../utils/format.js';
+import { promoterPath, useFilteredLink } from '../app/links.js';
 
 export default function Overview() {
   const { filters, hasData } = useData();
@@ -312,12 +313,13 @@ function SupervisorCard({ supervisors, filters }) {
 }
 
 function RankingCard({ title, hint, rows }) {
+  const link = useFilteredLink();
   return (
     <Card title={title} hint={hint}>
       <DataTable
         columns={[
           { key: 'name', label: 'Promotor', cellClass: 'name', render: (r) => (
-            <Link to={`/promotores/${encodeURIComponent(r.key)}`}>{r.name}</Link>
+            <Link to={link(promoterPath(r.key))}>{r.name}</Link>
           ) },
           { key: 'store', label: 'Tienda', cellClass: 'dim trunc', render: (r) => <span title={r.store}>{r.store}</span> },
           { key: 'so', label: 'SO', numeric: true, render: (r) => n(r.so) },

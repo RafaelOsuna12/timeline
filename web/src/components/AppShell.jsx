@@ -1,6 +1,7 @@
 /** Marco de la aplicacion: navegacion lateral, encabezado y area de contenido. */
 import { NavLink } from 'react-router-dom';
 import { useAuth, useData } from '../app/context.jsx';
+import { Brand } from './Brand.jsx';
 import { dateLabel, periodLabel } from '../utils/format.js';
 
 const Icon = ({ path }) => (
@@ -47,7 +48,8 @@ export function AppShell({ title, subtitle, actions, filterBar, children }) {
     <div className="shell">
       <aside className="sidebar no-print">
         <div className="sidebar__brand">
-          <h1 className="sidebar__title">Avance de ventas</h1>
+          <Brand height={19} className="sidebar__logo" />
+          <p className="sidebar__title">Avance de ventas</p>
           <p className="sidebar__subtitle">Sell-out retail · R1–R3</p>
         </div>
         <nav className="sidebar__nav">

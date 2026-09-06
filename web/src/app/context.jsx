@@ -86,6 +86,9 @@ export function DataProvider({ children }) {
             next.delete('store');
           }
           if (key === 'supervisor') next.delete('store');
+          // El dia de corte es relativo al snapshot: al cambiar de periodo o de
+          // carga hay que soltarlo o se arrastraria un dia que no existe alli.
+          if (key === 'snapshot') next.delete('asOfDay');
           return next;
         },
         { replace: true }
