@@ -37,6 +37,11 @@ nginx, y para actualizarse subiendo el archivo desde el propio navegador.
   día, distinguiendo la ausencia del día en piso sin venta.
 - **Avance entre cargas** — cuánto se movió cada equipo entre dos
   actualizaciones del archivo.
+- **Reportes para imprimir** — se eligen las regiones, los CM, los supervisores
+  y hasta los promotores concretos, y se genera un documento paginado con el
+  análisis de cada nivel: meta, venta, cumplimiento y cierre proyectado. Incluye
+  el **reporte de bajo rendimiento**, que cruza el per cápita diario (2 piezas
+  por día trabajado por omisión) con el mínimo del 60 % de cierre.
 
 **Operación**
 
@@ -47,7 +52,8 @@ nginx, y para actualizarse subiendo el archivo desde el propio navegador.
   mes. El mes elegido se mantiene al navegar (por ejemplo, al abrir la ficha de
   un promotor) porque viaja en la dirección del navegador.
 - Vista retrospectiva: ver el mes tal como se veía en un día anterior.
-- Exportación a CSV de promotores, supervisores, tiendas y serie diaria.
+- Exportación a CSV de promotores, supervisores, tiendas, serie diaria y bajo
+  rendimiento; e impresión o PDF del reporte completo desde el navegador.
 - Usuarios con tres roles (administrador, editor, consulta) y bitácora de
   actividad.
 
@@ -224,7 +230,8 @@ filtros por query string: `region`, `cm`, `supervisor`, `channel`, `store`,
 | `GET` | `/api/stores` | Desempeño por tienda |
 | `GET` | `/api/attendance` | Asistencia y días en cero |
 | `GET` | `/api/comparison` | Avance contra la carga anterior |
-| `GET` | `/api/export/:dataset.csv` | Exportación (`promotores`, `supervisores`, `tiendas`, `diario`) |
+| `GET` | `/api/report` | Documento para imprimir (`regions`, `cms`, `supervisors`, `promoters`, `sections`, `withDaily`, `minDaily`) |
+| `GET` | `/api/export/:dataset.csv` | Exportación (`promotores`, `supervisores`, `tiendas`, `diario`, `bajo_rendimiento`) |
 | `POST` | `/api/uploads` | Subir un archivo (roles admin y editor) |
 | `GET` | `/api/uploads/jobs/:id` | Avance del procesamiento |
 | `GET` | `/api/snapshots` | Historial de cargas |

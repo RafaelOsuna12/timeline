@@ -19,6 +19,7 @@ const ICONS = {
   stores: <Icon path={<><path d="M3 9l1.5-5h15L21 9M3 9h18M3 9v11h18V9M9 20v-6h6v6" /></>} />,
   attendance: <Icon path={<><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4M9 15l2 2 4-4" /></>} />,
   comparison: <Icon path={<><path d="M12 3v18M7 8l-4 4 4 4M17 8l4 4-4 4" /></>} />,
+  report: <Icon path={<><path d="M6 9V3h12v6M6 18h12v3H6zM6 14h12a2 2 0 0 0 2-2v-1a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v1a2 2 0 0 0 2 2z" /></>} />,
   upload: <Icon path={<><path d="M12 16V4M7 9l5-5 5 5" /><path d="M3 16v3a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3" /></>} />,
   admin: <Icon path={<><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3 15a2 2 0 1 1 0-4 1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 9 5V4.9a2 2 0 1 1 4 0V5a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.6 1.6 0 0 0 19 12" /></>} />,
 };
@@ -33,6 +34,7 @@ const NAV = [
     { to: '/tiendas', label: 'Tiendas', icon: 'stores' },
     { to: '/asistencia', label: 'Asistencia y cero venta', icon: 'attendance' },
     { to: '/comparativa', label: 'Avance entre cargas', icon: 'comparison' },
+    { to: '/reportes', label: 'Reportes para imprimir', icon: 'report' },
   ] },
   { group: 'Sistema', items: [
     { to: '/cargar', label: 'Cargar archivo', icon: 'upload', roles: ['admin', 'editor'] },

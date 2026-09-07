@@ -118,6 +118,7 @@ export const api = {
   stores: (q, signal) => request(`/stores${toQuery(q)}`, { signal }),
   attendance: (q, signal) => request(`/attendance${toQuery(q)}`, { signal }),
   comparison: (q, signal) => request(`/comparison${toQuery(q)}`, { signal }),
+  report: (q, signal) => request(`/report${toQuery(q)}`, { signal }),
 
   uploadHistory: () => request('/uploads'),
   uploadJob: (id) => request(`/uploads/jobs/${id}`),

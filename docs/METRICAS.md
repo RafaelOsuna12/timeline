@@ -197,6 +197,41 @@ La elección viaja en la dirección del navegador junto con el resto de los
 filtros, de modo que al abrir la ficha de un promotor, volver al listado o
 compartir el enlace se sigue viendo el mismo mes y no el más reciente.
 
+## Reportes para imprimir
+
+El documento se arma eligiendo el alcance —una o varias regiones, CMs,
+supervisores o promotores concretos— y las secciones que se quieren. Cada
+sección empieza en una página nueva y todos los bloques abren con los mismos
+cuatro números: **meta del mes, venta al corte, cumplimiento y cierre**
+(proyectado si el mes sigue abierto, real si ya cerró).
+
+En papel el estatus se imprime con su nombre y no solo con color, porque una
+impresión en blanco y negro perdería la única señal.
+
+### Reporte de bajo rendimiento
+
+Cruza dos condiciones que **no** son equivalentes, y por eso va en tres bloques:
+
+1. **No llegan al per cápita ni al mínimo del 60 %** — venden menos del umbral
+   por día trabajado *y* su cierre proyectado queda bajo el 60 %. Es el bloque
+   que pide acción.
+2. **Cierran bajo el 60 % aunque sí llegan al per cápita** — el ritmo diario es
+   correcto; lo que falta son días en piso o la meta está fuera de alcance.
+3. **Bajo el per cápita pero cierran sobre el 60 %** — informativo.
+
+El umbral es configurable; el valor por omisión es **2 piezas por día
+trabajado**. Conviene saber qué implica ese número con las metas actuales: en el
+cierre de agosto de 2026, 134 de 163 promotores con meta quedaron por debajo de
+2 pzs/día, pero **88 de ellos cerraron por encima del 60 %** —algunos incluso
+sobre el 100 %—, porque con una meta mediana de 44 piezas y ~26 días trabajados
+basta con ~1.1 pzs/día para alcanzar el mínimo. La relación sí se cumple en el
+otro sentido: casi todos los que quedan bajo el 60 % están también bajo las 2
+pzs/día (2 excepciones en agosto). Por eso el reporte separa los bloques en vez
+de tratar las dos condiciones como una sola.
+
+Las plazas vacantes aparecen marcadas como tales: salen sin venta, pero no hay a
+quién acompañar.
+
 ## Avance entre cargas
 
 Compara dos versiones del mismo periodo (por ejemplo la de hoy contra la de
