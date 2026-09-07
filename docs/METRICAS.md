@@ -208,6 +208,17 @@ cuatro números: **meta del mes, venta al corte, cumplimiento y cierre**
 En papel el estatus se imprime con su nombre y no solo con color, porque una
 impresión en blanco y negro perdería la única señal.
 
+Al elegir promotores se selecciona a la **persona**, no a una de sus plazas: si
+cubre una tienda de apoyo, esa tienda entra al reporte con su venta y sus días,
+y las tablas la nombran debajo de la principal en lugar de resumirla como "+1".
+La portada dice cuántas de las tiendas del alcance son de apoyo.
+
+En la ficha individual, la participación de cada modelo se reparte entre los
+modelos listados y no contra el sell-out del mes: el archivo trae el desglose
+mensual solo de los modelos foco con seguimiento, que suma menos que la venta
+total. Cuando hay diferencia el reporte dice cuántas piezas quedaron sin
+desglose.
+
 ### Reporte de bajo rendimiento
 
 Cruza dos condiciones que **no** son equivalentes, y por eso va en tres bloques:

@@ -83,6 +83,7 @@ function Cover({ data, closed }) {
             <td>
               {n(s.promoterCount)}
               {s.isPartial ? ` de ${n(s.universePromoters)}` : ''} en {n(s.storeCount)} tiendas
+              {s.supportStoreCount > 0 ? ` (${n(s.supportStoreCount)} de apoyo)` : ''}
             </td>
           </tr>
           <tr>
@@ -139,6 +140,26 @@ function Figure({ label, value, unit, note, status }) {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Tiendas de una plaza. La principal en la primera linea y las de apoyo
+ * debajo: si solo se imprime "+1", la tienda de apoyo no existe para quien
+ * lee el reporte.
+ */
+function StoreList({ row }) {
+  const stores = row.stores && row.stores.length ? row.stores : [row.store];
+  if (stores.length === 1) return stores[0];
+  return (
+    <>
+      {stores[0]}
+      {stores.slice(1).map((st) => (
+        <span className="report__substore" key={st}>
+          + {st}
+        </span>
+      ))}
+    </>
   );
 }
 
@@ -358,8 +379,7 @@ function PromoterTable({ rows, closed }) {
           <tr key={p.key}>
             <td className="name">{p.name}</td>
             <td>
-              {p.store}
-              {(p.storeCount || 1) > 1 ? ` (+${p.storeCount - 1})` : ''}
+              <StoreList row={p} />
             </td>
             <td className="num">{n(p.target)}</td>
             <td className="num">{n(p.so)}</td>
@@ -412,9 +432,14 @@ function PromoterSection({ p, ctx, closed }) {
         </tbody>
       </table>
 
-      {p.stores?.length > 1 && (
+      {p.storeBreakdown?.length > 1 && (
         <>
           <h3 className="report__h3">Venta por tienda</h3>
+          <p className="report__note" style={{ margin: '0 0 8px' }}>
+            Los indicadores de arriba suman todas sus tiendas. La meta vive en la plaza base, por eso la de apoyo
+            aparece sin objetivo propio, y sus dias en piso pueden sumar mas que los dias trabajados: cubrir dos
+            tiendas el mismo dia es un solo dia de trabajo.
+          </p>
           <table className="report__table report__table--data">
             <thead>
               <tr>
@@ -430,7 +455,7 @@ function PromoterSection({ p, ctx, closed }) {
               </tr>
             </thead>
             <tbody>
-              {p.stores.map((s) => (
+              {p.storeBreakdown.map((s) => (
                 <tr key={s.key}>
                   <td className="name">{s.store}</td>
                   <td>{s.channel}</td>
@@ -448,29 +473,7 @@ function PromoterSection({ p, ctx, closed }) {
         </>
       )}
 
-      {p.models?.length > 0 && (
-        <>
-          <h3 className="report__h3">Mezcla de modelos</h3>
-          <table className="report__table report__table--data">
-            <thead>
-              <tr>
-                <th>Modelo</th>
-                <th className="num">Piezas</th>
-                <th className="num">Participacion</th>
-              </tr>
-            </thead>
-            <tbody>
-              {p.models.map((m) => (
-                <tr key={m.model}>
-                  <td>{m.model}</td>
-                  <td className="num">{n(m.qty)}</td>
-                  <td className="num">{pct(p.soAll ? m.qty / p.soAll : null)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </>
-      )}
+      {p.models?.length > 0 && <ModelMix models={p.models} so={p.so} />}
 
       {p.daily && (
         <>
@@ -502,6 +505,53 @@ function PromoterSection({ p, ctx, closed }) {
         </>
       )}
     </section>
+  );
+}
+
+/**
+ * Mezcla de modelos de un promotor.
+ *
+ * La participacion se reparte entre los modelos listados, no contra el
+ * sell-out: el archivo trae el desglose mensual solo de los modelos foco con
+ * seguimiento, que suma menos que la venta del mes, y dividir entre esta
+ * ultima daria porcentajes que no cierran en 100%. Cuando hay diferencia se
+ * dice cuanta es, en vez de dejar el hueco sin explicar.
+ */
+function ModelMix({ models, so }) {
+  const total = models.reduce((a, m) => a + m.qty, 0);
+  const rest = Math.max(0, (so || 0) - total);
+  return (
+    <>
+      <h3 className="report__h3">Mezcla de modelos</h3>
+      <table className="report__table report__table--data">
+        <thead>
+          <tr>
+            <th>Modelo</th>
+            <th className="num">Piezas</th>
+            <th className="num">Participacion</th>
+          </tr>
+        </thead>
+        <tbody>
+          {models.map((m) => (
+            <tr key={m.model}>
+              <td>{m.model}</td>
+              <td className="num">{n(m.qty)}</td>
+              <td className="num">{pct(total ? m.qty / total : null)}</td>
+            </tr>
+          ))}
+          <tr>
+            <th>Total con desglose</th>
+            <th className="num">{n(total)}</th>
+            <th className="num">100.0%</th>
+          </tr>
+        </tbody>
+      </table>
+      {rest > 0 && (
+        <p className="report__note">
+          Su venta de modelos foco es de {n(so)} piezas: {n(rest)} no traen desglose mensual por modelo en el archivo.
+        </p>
+      )}
+    </>
   );
 }
 
@@ -616,8 +666,7 @@ function LowBlock({ title, subtitle, rows, closed, empty }) {
                   {p.isVacancy && <span className="report__flag"> plaza vacante</span>}
                 </td>
                 <td>
-                  {p.store}
-                  {(p.storeCount || 1) > 1 ? ` (+${p.storeCount - 1})` : ''}
+                  <StoreList row={p} />
                 </td>
                 <td>{p.supervisor || '—'}</td>
                 <td className="num">{n(p.target)}</td>

@@ -1366,6 +1366,12 @@ table.data td.trunc {
   white-space: nowrap;
 }
 
+.report__substore {
+  display: block;
+  font-size: 10.5px;
+  color: var(--text-secondary);
+}
+
 .report__flag {
   font-size: 9.5px;
   text-transform: uppercase;

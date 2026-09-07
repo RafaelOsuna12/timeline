@@ -32,18 +32,33 @@ function setOf(list) {
  * Recorta el universo de plazas al alcance elegido.
  * Cada dimension es independiente y acumulativa: elegir dos regiones y un
  * supervisor da las plazas de ese supervisor dentro de esas dos regiones.
+ *
+ * Al elegir promotores se selecciona a la *persona*, no a una de sus plazas:
+ * el identificador que llega es el de su tienda principal, pero entran todas
+ * las que cubre. De lo contrario una tienda de apoyo quedaria fuera del
+ * reporte y su venta no aparecerian por ningun lado.
  */
 function applyScope(rows, selection) {
   const regions = setOf(selection.regions);
   const cms = setOf(selection.cms);
   const supervisors = setOf(selection.supervisors);
-  const people = setOf(selection.promoters);
+  const selectedPeople = setOf(selection.promoters);
+
+  // Los identificadores elegidos se traducen a claves de persona, y esas
+  // claves son las que deciden que plazas entran.
+  const people = selectedPeople
+    ? new Set(
+        rows
+          .filter((p) => selectedPeople.has(norm(p.id)) || selectedPeople.has(norm(personKeyOf(p))))
+          .map((p) => personKeyOf(p))
+      )
+    : null;
 
   return rows.filter((p) => {
     if (regions && !regions.has(norm(p.region))) return false;
     if (cms && !cms.has(norm(p.cm))) return false;
     if (supervisors && !supervisors.has(norm(p.supervisor))) return false;
-    if (people && !people.has(norm(p.id)) && !people.has(norm(personKeyOf(p)))) return false;
+    if (people && !people.has(personKeyOf(p))) return false;
     return true;
   });
 }
@@ -73,7 +88,9 @@ function promoterSheet(ctx, person, { withDaily }) {
 
   const sheet = {
     ...rest,
-    stores: placementBreakdown(person, ctx),
+    // `stores` son los nombres (viene de las metricas); el desglose con
+    // numeros por tienda va aparte para no pisar uno con el otro.
+    storeBreakdown: placementBreakdown(person, ctx),
     models: Object.entries(person.models || {})
       .map(([model, qty]) => ({ model, qty: round(qty, 0) }))
       .filter((x) => x.qty > 0)
@@ -236,6 +253,7 @@ export function buildReport(snapshot, filters = {}, options = {}) {
       promoterCount: people.length,
       placementCount: rows.length,
       storeCount: new Set(rows.map((p) => p.store)).size,
+      supportStoreCount: rows.filter((p) => p.status === 'SUPPORT').length,
       isPartial: rows.length < universe.length,
       universePromoters: collapsePersons(universe, days).length,
     },
