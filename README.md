@@ -24,7 +24,9 @@ nginx, y para actualizarse subiendo el archivo desde el propio navegador.
   Promotor, con métricas en cada nivel para ubicar exactamente dónde se pierde
   el target.
 - **Promotores** — tabla maestra filtrable y ficha individual con detalle diario,
-  mezcla de modelos y comparación contra el promedio de su propio equipo.
+  mezcla de modelos y comparación contra el promedio de su propio equipo. Quien
+  cubre más de una tienda cuenta como **un solo promotor**, con el desglose de
+  piezas vendidas en cada punto de venta.
 - **Modelos y mezcla** — participación de cada modelo foco, portafolio completo
   por canal y desglose por versión de operador y color.
 - **Tiendas** — desempeño por punto de venta.

@@ -154,6 +154,8 @@ const EXPORTS = {
       Supervisor: p.supervisor,
       Canal: p.channel,
       Tienda: p.store,
+      Tiendas: (p.stores || [p.store]).join(' | '),
+      Num_tiendas: p.storeCount || 1,
       Promotor: p.name,
       Tipo: p.employment,
       Target: p.target,

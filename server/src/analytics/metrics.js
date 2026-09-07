@@ -14,6 +14,8 @@
  *   - Forecast : cierre estimado al ultimo dia del mes.
  */
 
+import { collapsePersons } from './persons.js';
+
 /**
  * Clasificacion de desempeño.
  *
@@ -151,11 +153,19 @@ export function statusOf(projected, target) {
  * Construye el bloque de metricas de una entidad (compania, region, CM, SP,
  * promotor, canal, tienda...) a partir de sus promotores.
  *
+ * Las filas que llegan son *plazas* (tienda + asesor). Antes de sumar se
+ * agrupan por persona, porque quien cubre dos tiendas es un promotor, no dos:
+ * de lo contrario el headcount del supervisor y del CM sale inflado y un dia
+ * cubierto en dos tiendas contaria como dos dias trabajados. Las ventas no
+ * cambian —se suman igual—, solo dejan de contarse dos veces las personas y
+ * los dias.
+ *
  * @param {object} ctx  contexto del snapshot (periodo, corte, dias)
- * @param {Array}  rows promotores que pertenecen a la entidad
+ * @param {Array}  rows plazas que pertenecen a la entidad
  */
-export function computeMetrics(ctx, rows, extra = {}) {
+export function computeMetrics(ctx, placements, extra = {}) {
   const { daysInMonth, cutoffDay, periodYear: year, periodMonth: month } = ctx;
+  const rows = collapsePersons(placements, daysInMonth);
   const soTarget = zeros(daysInMonth);
   const soAll = zeros(daysInMonth);
   const soIot = zeros(daysInMonth);
@@ -184,6 +194,7 @@ export function computeMetrics(ctx, rows, extra = {}) {
     if (sum(p.daily.attendance) > 0) activeHeadcount += 1;
     for (const [m, v] of Object.entries(p.models || {})) models[m] = (models[m] || 0) + (v || 0);
   }
+  const placementCount = placements.length;
 
   const period = { year, month, cutoffDay, daysInMonth };
   const fcTarget = forecastMonth(soTarget, period);
@@ -201,6 +212,7 @@ export function computeMetrics(ctx, rows, extra = {}) {
   return {
     ...extra,
     headcount,
+    placementCount,
     activeHeadcount,
     baseCount,
     supportCount,

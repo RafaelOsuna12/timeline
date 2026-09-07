@@ -7,7 +7,7 @@ import { api } from '../api.js';
 import { useData, useQuery } from '../app/context.jsx';
 import AppShell from '../components/AppShell.jsx';
 import FilterBar from '../components/FilterBar.jsx';
-import { Card, DataTable, Empty, ErrorBox, Kpi, Spinner, ViewToggle } from '../components/ui.jsx';
+import { Card, DataTable, Empty, ErrorBox, Kpi, Spinner, StoreCell, ViewToggle } from '../components/ui.jsx';
 import { DailyBars, HeatLegend, Heatmap } from '../components/charts/index.jsx';
 import { d2, n, pct } from '../utils/format.js';
 import { promoterPath, useFilteredNavigate } from '../app/links.js';
@@ -71,7 +71,15 @@ export default function Attendance() {
               meta="Menos del 70% de los dias del corte"
               tone={stats.lowCoverage ? 'warning' : undefined}
             />
-            <Kpi label="Promotores en el corte" value={n(data.headcount)} meta="Segun los filtros aplicados" />
+            <Kpi
+              label="Promotores en el corte"
+              value={n(data.headcount)}
+              meta={
+                data.placementCount > data.headcount
+                  ? `Cubren ${n(data.placementCount)} tiendas entre todos`
+                  : 'Segun los filtros aplicados'
+              }
+            />
           </section>
 
           <Card
@@ -132,7 +140,12 @@ export default function Attendance() {
               <DataTable
                 columns={[
                   { key: 'name', label: 'Promotor', cellClass: 'name' },
-                  { key: 'store', label: 'Tienda', cellClass: 'dim' },
+                  {
+                    key: 'store',
+                    label: 'Tienda',
+                    cellClass: 'dim',
+                    render: (r) => <StoreCell store={r.store} stores={r.stores} count={r.storeCount} />,
+                  },
                   { key: 'supervisor', label: 'Supervisor', cellClass: 'dim' },
                   { key: 'workedDays', label: 'Dias trabajados', numeric: true, render: (r) => n(r.workedDays) },
                   { key: 'coverage', label: 'Cobertura', numeric: true, render: (r) => pct(r.coverage) },

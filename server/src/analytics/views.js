@@ -17,6 +17,7 @@ import {
   weekdayOf,
   zeros,
 } from './metrics.js';
+import { collapsePersons, personKeyOf, placementBreakdown } from './persons.js';
 
 /* ------------------------------ filtros ------------------------------ */
 
@@ -150,12 +151,15 @@ export function buildOverview(snapshot, filters = {}) {
   const cms = rank(groupBy(ctx, rows, (p) => p.cm || 'SIN CM').map(slim), 'ach');
   const supervisors = rank(groupBy(ctx, rows, (p) => p.supervisor || 'SIN SUPERVISOR').map(slim), 'ach');
 
-  const promoterMetrics = rows.map((p) =>
+  // Rankings y alertas por persona, no por plaza: quien cubre dos tiendas
+  // aparece una sola vez y con sus dos tiendas sumadas.
+  const promoterMetrics = collapsePersons(rows, ctx.daysInMonth).map((p) =>
     slim(
       computeMetrics(ctx, [p], {
         key: p.id,
         name: p.advisor,
         store: p.store,
+        storeCount: p.storeCount || 1,
         channel: p.channel,
         region: p.region,
         cm: p.cm,
@@ -378,7 +382,7 @@ export function buildHierarchy(snapshot, filters = {}) {
         name: cmName,
         level: 'cm',
         region: regionName,
-        ffsInCharge: leader?.ffsInCharge ?? cmRows.length,
+        ffsInCharge: leader?.ffsInCharge ?? collapsePersons(cmRows, ctx.daysInMonth).length,
       });
       const sups = [];
       for (const [supName, supRows] of group(cmRows, (p) => p.supervisor || 'SIN SUPERVISOR')) {
@@ -389,16 +393,18 @@ export function buildHierarchy(snapshot, filters = {}) {
           level: 'supervisor',
           region: regionName,
           cm: cmName,
-          ffsInCharge: spLeader?.ffsInCharge ?? supRows.length,
+          ffsInCharge: spLeader?.ffsInCharge ?? collapsePersons(supRows, ctx.daysInMonth).length,
         });
         sp.promoters = rank(
-          supRows.map((p) =>
+          collapsePersons(supRows, ctx.daysInMonth).map((p) =>
             slim(
               computeMetrics(ctx, [p], {
                 key: p.id,
                 name: p.advisor,
                 level: 'promotor',
                 store: p.store,
+                stores: p.stores || [p.store],
+                storeCount: p.storeCount || 1,
                 channel: p.channel,
                 region: p.region,
                 cm: p.cm,
@@ -444,12 +450,18 @@ function normKey(v) {
 export function buildPromoters(snapshot, filters = {}) {
   const ctx = contextOf(snapshot, filters);
   const rows = filterPromoters(snapshot.promoters, filters);
-  const list = rows.map((p) => {
+  // Una fila por persona: quien cubre dos tiendas aparece una vez, con sus dos
+  // tiendas sumadas. Si hay filtro de tienda, solo entran las plazas del filtro.
+  const people = collapsePersons(rows, ctx.daysInMonth);
+  const list = people.map((p) => {
     const m = computeMetrics(ctx, [p], {
       key: p.id,
       name: p.advisor,
       store: p.store,
+      stores: p.stores || [p.store],
+      storeCount: p.storeCount || 1,
       channel: p.channel,
+      channels: p.channels || [p.channel],
       region: p.region,
       cm: p.cm,
       supervisor: p.supervisor,
@@ -464,13 +476,27 @@ export function buildPromoters(snapshot, filters = {}) {
 /** Detalle completo de un promotor, incluida su serie por modelo. */
 export function buildPromoterDetail(snapshot, promoterId, filters = {}) {
   const ctx = contextOf(snapshot, filters);
-  const p = snapshot.promoters.find((x) => x.id === promoterId);
-  if (!p) return null;
+  // El identificador de la URL es el de una plaza; la ficha es de la persona,
+  // asi que se resuelve a todas sus plazas. Cualquiera de sus tiendas lleva a
+  // la misma ficha, y los enlaces antiguos siguen funcionando.
+  const anchor = snapshot.promoters.find((x) => x.id === promoterId);
+  if (!anchor) return null;
+  const wanted = personKeyOf(anchor);
+  // Se toman todas sus tiendas, pero dentro del mismo alcance que el resto del
+  // tablero (las plazas OFFLINE quedan fuera salvo que se pidan), para que el
+  // total de la ficha cuadre con el de la fila del listado.
+  const scope = filterPromoters(snapshot.promoters, { includeOffline: filters.includeOffline });
+  const mine = scope.filter((x) => personKeyOf(x) === wanted);
+  const [p] = collapsePersons(mine.length ? mine : [anchor], ctx.daysInMonth);
+  const stores = placementBreakdown(p, ctx);
   const m = computeMetrics(ctx, [p], {
     key: p.id,
     name: p.advisor,
     store: p.store,
+    stores: p.stores || [p.store],
+    storeCount: p.storeCount || 1,
     channel: p.channel,
+    channels: p.channels || [p.channel],
     region: p.region,
     cm: p.cm,
     supervisor: p.supervisor,
@@ -490,13 +516,14 @@ export function buildPromoterDetail(snapshot, promoterId, filters = {}) {
   }));
 
   // Comparativa contra el promedio del equipo del mismo supervisor.
-  const peers = snapshot.promoters.filter((x) => x.supervisor === p.supervisor && x.id !== p.id);
+  const peers = snapshot.promoters.filter((x) => x.supervisor === p.supervisor && personKeyOf(x) !== wanted);
   const peerMetrics = peers.length ? computeMetrics(ctx, peers) : null;
 
   return {
     context: ctx,
     meta: snapshot.meta,
     promoter: slim(m),
+    stores,
     daily,
     modelDaily: Object.entries(p.modelDaily || {}).map(([model, series]) => ({
       model,
@@ -509,7 +536,7 @@ export function buildPromoterDetail(snapshot, promoterId, filters = {}) {
       .sort((a, b) => b.qty - a.qty),
     peerAverage: peerMetrics
       ? {
-          so: round(peerMetrics.so / peers.length, 1),
+          so: round(peerMetrics.so / peerMetrics.headcount, 1),
           ach: peerMetrics.ach,
           productivity: peerMetrics.productivity,
           zeroSaleRate: peerMetrics.zeroSaleRate,
@@ -588,7 +615,7 @@ export function buildStores(snapshot, filters = {}) {
     s.region = items[0]?.region ?? null;
     s.cm = items[0]?.cm ?? null;
     s.supervisor = items[0]?.supervisor ?? null;
-    s.advisors = items.map((p) => p.advisor);
+    s.advisors = [...new Set(items.map((p) => p.advisor))];
   }
   rank(stores, 'so');
   return { context: ctx, meta: snapshot.meta, stores };
@@ -606,7 +633,11 @@ export function buildAttendance(snapshot, filters = {}) {
   const rows = filterPromoters(snapshot.promoters, filters);
   const days = ctx.daysInMonth;
 
-  const matrix = rows.map((p) => {
+  // Una fila por persona: un dia cubierto en dos tiendas es un dia trabajado,
+  // y solo cuenta como dia en cero si no vendio en ninguna de las dos.
+  const people = collapsePersons(rows, days);
+
+  const matrix = people.map((p) => {
     const attendance = p.daily.attendance.slice(0, days);
     const so = p.daily.soTarget.slice(0, days);
     const worked = sum(attendance.slice(0, ctx.cutoffDay));
@@ -615,6 +646,8 @@ export function buildAttendance(snapshot, filters = {}) {
       key: p.id,
       name: p.advisor,
       store: p.store,
+      stores: p.stores || [p.store],
+      storeCount: p.storeCount || 1,
       region: p.region,
       cm: p.cm,
       supervisor: p.supervisor,
@@ -635,9 +668,9 @@ export function buildAttendance(snapshot, filters = {}) {
     day: i + 1,
     weekday: WEEKDAY_LABELS[weekdayOf(ctx.periodYear, ctx.periodMonth, i + 1)],
     isFuture: i + 1 > ctx.cutoffDay,
-    present: round(sum(rows.map((p) => p.daily.attendance[i] || 0)), 0),
-    zeroSale: round(sum(rows.map((p) => p.daily.zeroSale[i] || 0)), 0),
-    so: round(sum(rows.map((p) => p.daily.soTarget[i] || 0)), 0),
+    present: round(sum(people.map((p) => p.daily.attendance[i] || 0)), 0),
+    zeroSale: round(sum(people.map((p) => p.daily.zeroSale[i] || 0)), 0),
+    so: round(sum(people.map((p) => p.daily.soTarget[i] || 0)), 0),
   }));
 
   return {
@@ -645,7 +678,8 @@ export function buildAttendance(snapshot, filters = {}) {
     meta: snapshot.meta,
     promoters: matrix.sort((a, b) => (a.coverage ?? 0) - (b.coverage ?? 0)),
     byDay,
-    headcount: rows.length,
+    headcount: people.length,
+    placementCount: rows.length,
   };
 }
 

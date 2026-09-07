@@ -197,6 +197,23 @@ export function DataTable({ columns, rows, initialSort, rowKey = (r, i) => r.key
 }
 
 /** Alterna entre grafico y tabla dentro de una misma tarjeta. */
+/**
+ * Tienda de un promotor. Quien cubre mas de una se muestra con la principal y
+ * el resto en la etiqueta, para que la fila siga siendo una sola persona sin
+ * esconder que atiende varios puntos de venta.
+ */
+export function StoreCell({ store, stores, count }) {
+  const list = stores && stores.length ? stores : store ? [store] : [];
+  const extra = (count || list.length) - 1;
+  if (!list.length) return '—';
+  return (
+    <span title={list.join(' · ')}>
+      {list[0]}
+      {extra > 0 && <span className="tag tag--soft">+{extra} tienda{extra > 1 ? 's' : ''}</span>}
+    </span>
+  );
+}
+
 export function ViewToggle({ value, onChange }) {
   return (
     <div className="row" role="group" aria-label="Cambiar vista">

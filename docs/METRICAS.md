@@ -139,6 +139,34 @@ La distinción importa: un equipo puede no llegar por **falta de cobertura**
 calor separa ambos casos —celda gris para la ausencia, celda clara con borde
 para el día en piso sin venta— porque la acción correctiva es distinta.
 
+## Promotores con más de una tienda
+
+El Excel trae **una fila por plaza** (tienda + asesor), así que un promotor que
+cubre dos puntos de venta aparece dos veces. El sistema agrupa esas filas en una
+sola persona antes de calcular cualquier indicador:
+
+| Concepto | Cómo se agrega |
+|---|---|
+| Ventas y targets | se suman: una venta en cada tienda son dos ventas |
+| Conteo de promotores | **uno**, no dos: quien cubre dos tiendas es un promotor |
+| Días trabajados | un día cubriendo dos tiendas es **un** día de trabajo |
+| Días en cero | el día cuenta como en cero solo si no vendió en **ninguna** |
+
+Por eso el headcount de un supervisor o de un CM puede ser menor que su número
+de plazas; ambos valores se muestran juntos donde importa ("171 promotores
+cubren 195 tiendas"). Las ventas y el target no cambian con esta agrupación:
+solo dejan de contarse dos veces las personas y los días.
+
+La persona se identifica por el nombre del asesor —es lo único que la identifica
+en el reporte, ya que la columna `DOUBLE ADVISOR` viene en cero para todas las
+filas—. Los nombres que no son personas (`VACANCY` y similares) nunca se
+agrupan: diez vacantes son diez plazas distintas, no una persona con diez
+tiendas.
+
+La ficha individual muestra el **desglose por tienda**: piezas, participación,
+días en piso y días en cero de cada punto de venta. El target vive en la plaza
+BASE, así que la de apoyo aparece sin objetivo propio.
+
 ## Alcance de los totales
 
 Por defecto se excluyen las plazas marcadas como **OFFLINE** (sin región

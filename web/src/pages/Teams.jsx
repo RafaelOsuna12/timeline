@@ -8,7 +8,7 @@ import { api, downloadCsv } from '../api.js';
 import { useData, useQuery } from '../app/context.jsx';
 import AppShell from '../components/AppShell.jsx';
 import FilterBar from '../components/FilterBar.jsx';
-import { AchCell, Card, DataTable, Empty, ErrorBox, Spinner, StatusPill } from '../components/ui.jsx';
+import { AchCell, Card, DataTable, Empty, ErrorBox, Spinner, StatusPill, StoreCell } from '../components/ui.jsx';
 import { d1, n, pct } from '../utils/format.js';
 import { promoterPath, useFilteredLink } from '../app/links.js';
 
@@ -140,7 +140,12 @@ function PromoterPanel({ supervisor }) {
             cellClass: 'name',
             render: (p) => <Link to={link(promoterPath(p.key))}>{p.name}</Link>,
           },
-          { key: 'store', label: 'Tienda', cellClass: 'dim' },
+          {
+            key: 'store',
+            label: 'Tienda',
+            cellClass: 'dim',
+            render: (p) => <StoreCell store={p.store} stores={p.stores} count={p.storeCount} />,
+          },
           { key: 'channel', label: 'Canal', cellClass: 'dim' },
           { key: 'employment', label: 'Tipo', cellClass: 'dim' },
           { key: 'target', label: 'Target', numeric: true, render: (p) => n(p.target) },

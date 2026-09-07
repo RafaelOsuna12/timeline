@@ -59,8 +59,14 @@ En `1.Daily_Retail_FF_SO_Target` (fila de encabezado con `CHANNEL`):
 | `SO (Tgt Models)` | Sell-out acumulado de modelos foco |
 | `TTL SO ALL Models` | Sell-out acumulado de todas las series |
 
-La clave única de un promotor es **tienda + nombre**, porque un mismo asesor
-puede aparecer en dos tiendas distintas (cobertura doble).
+Cada fila es una **plaza**: tienda + asesor. Un mismo promotor puede ocupar dos
+plazas (cobertura doble), así que la clave de la fila es *tienda + nombre*, pero
+para contar personas y días trabajados esas filas se agrupan por asesor —ver
+[Promotores con más de una tienda](METRICAS.md#promotores-con-más-de-una-tienda)—.
+
+La columna `DOUBLE ADVISOR` existe en el archivo pero viene en cero para todas
+las filas, así que no se usa: la cobertura doble se detecta por el nombre
+repetido.
 
 ## Día de corte
 

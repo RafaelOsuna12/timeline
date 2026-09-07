@@ -3,10 +3,17 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useData, useQuery } from '../app/context.jsx';
 import AppShell from '../components/AppShell.jsx';
-import { AchCell, Card, DataTable, Empty, ErrorBox, Kpi, Spinner, StatusPill } from '../components/ui.jsx';
+import { BarCell, Card, DataTable, Empty, ErrorBox, Kpi, Spinner, StatusPill } from '../components/ui.jsx';
 import { AdvanceCurve, DailyBars, ShareBars } from '../components/charts/index.jsx';
 import { d1, d2, n, pct, statusTone } from '../utils/format.js';
 import { useFilteredLink } from '../app/links.js';
+
+/** Una tienda se nombra sola; varias se enumeran para no esconder ninguna. */
+function storeSubtitle(p) {
+  const stores = p.stores && p.stores.length ? p.stores : [p.store];
+  if (stores.length === 1) return `${stores[0]} · ${p.channel}`;
+  return `${stores.length} tiendas: ${stores.join(' · ')}`;
+}
 
 export default function PromoterDetail() {
   const { id } = useParams();
@@ -21,7 +28,7 @@ export default function PromoterDetail() {
   return (
     <AppShell
       title={data ? data.promoter.name : 'Promotor'}
-      subtitle={data ? `${data.promoter.store} · ${data.promoter.channel}` : ''}
+      subtitle={data ? storeSubtitle(data.promoter) : ''}
       actions={
         <Link to={link('/promotores')} className="btn btn--sm">
           Volver al listado
@@ -40,6 +47,9 @@ function Detail({ data }) {
   const p = data.promoter;
   const ctx = data.context;
   const closed = ctx.cutoffDay >= ctx.daysInMonth;
+  const stores = data.stores || [];
+  const multi = stores.length > 1;
+  const maxStoreSo = Math.max(...stores.map((s) => s.so), 1);
 
   // Se reconstruye la curva de avance con el mismo formato que usa el resumen.
   const daily = data.daily.map((d) => ({
@@ -94,8 +104,8 @@ function Detail({ data }) {
                 <td>{p.employment}</td>
               </tr>
               <tr>
-                <th className="is-static">Tienda</th>
-                <td>{p.store}</td>
+                <th className="is-static">{multi ? 'Tiendas' : 'Tienda'}</th>
+                <td>{(p.stores && p.stores.length ? p.stores : [p.store]).join(' · ')}</td>
                 <th className="is-static">Estatus</th>
                 <td>
                   <StatusPill status={p.status} />
@@ -111,6 +121,38 @@ function Detail({ data }) {
           </table>
         </div>
       </Card>
+
+      {multi && (
+        <Card
+          title="Venta por tienda"
+          hint="El promotor cubre mas de un punto de venta. Los indicadores de arriba suman las dos tiendas; aqui se ve cuanto aporto cada una. El target vive en la plaza base, por eso la de apoyo aparece sin objetivo propio."
+        >
+          <DataTable
+            columns={[
+              { key: 'store', label: 'Tienda', cellClass: 'name' },
+              { key: 'channel', label: 'Canal', cellClass: 'dim' },
+              { key: 'employment', label: 'Tipo de plaza', cellClass: 'dim' },
+              { key: 'target', label: 'Target', numeric: true, render: (s) => (s.target ? n(s.target) : '—') },
+              { key: 'so', label: 'SO foco', numeric: true, render: (s) => <BarCell value={s.so} max={maxStoreSo} /> },
+              // Es un reparto, no un cumplimiento: se muestra en gris, sin las
+              // bandas de color del ACH%, que aqui significarian otra cosa.
+              { key: 'share', label: 'Participacion', numeric: true, render: (s) => pct(s.share) },
+              { key: 'soAll', label: 'SO total', numeric: true, render: (s) => n(s.soAll) },
+              { key: 'soIot', label: 'IOT', numeric: true, render: (s) => n(s.soIot) },
+              { key: 'workedDays', label: 'Dias en piso', numeric: true, render: (s) => n(s.workedDays) },
+              { key: 'zeroDays', label: 'Dias en cero', numeric: true, render: (s) => n(s.zeroDays) },
+              { key: 'productivity', label: 'Pzs/dia', numeric: true, render: (s) => d2(s.productivity) },
+            ]}
+            rows={stores}
+            rowKey={(s) => s.key}
+            initialSort={{ key: 'so', dir: 'desc' }}
+          />
+          <p className="card__hint" style={{ marginTop: 10 }}>
+            Los dias en piso de cada tienda pueden sumar mas que los {n(p.attendanceDays)} dias trabajados del promotor:
+            un dia cubriendo las dos tiendas es un solo dia de trabajo.
+          </p>
+        </Card>
+      )}
 
       <Card title="Avance acumulado" hint="Acumulado del promotor contra el reparto lineal de su target.">
         <AdvanceCurve daily={daily} target={p.target} cutoffDay={ctx.cutoffDay} height={250} />
@@ -153,7 +195,7 @@ function Detail({ data }) {
                 label: 'Participacion',
                 numeric: true,
                 sortValue: (m) => m.total,
-                render: (m) => <AchCell value={p.so ? m.total / p.so : null} />,
+                render: (m) => pct(p.so ? m.total / p.so : null),
               },
             ]}
             rows={data.modelDaily}
