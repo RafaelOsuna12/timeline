@@ -28,7 +28,10 @@ nginx, y para actualizarse subiendo el archivo desde el propio navegador.
   cubre más de una tienda cuenta como **un solo promotor**, con el desglose de
   piezas vendidas en cada punto de venta.
 - **Modelos y mezcla** — participación de cada modelo foco, portafolio completo
-  por canal y desglose por versión de operador y color.
+  por canal y desglose por versión de operador y color. Para los modelos con
+  hoja diaria propia, además: **curva de adopción**, día de la primera venta,
+  cobertura de promotores, reparto por región y canal, y la lista de quienes aún
+  no colocan una pieza.
 - **Tiendas** — desempeño por punto de venta.
 - **Clasificación en cinco bandas** — En meta (100 %), Ideal (90–99 %), Regular
   (70–89 %), Mínimo (60–69 %) y Fuera de meta por debajo del 60 %, que es el

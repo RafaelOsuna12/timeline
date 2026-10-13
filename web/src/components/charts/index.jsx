@@ -5,6 +5,7 @@ import {
   CartesianGrid,
   Cell,
   ComposedChart,
+  LabelList,
   Line,
   ReferenceLine,
   ResponsiveContainer,
@@ -13,6 +14,82 @@ import {
 } from 'recharts';
 import { BarTooltip, LineTooltip, Legend, axisProps, gridProps, truncateTick } from './primitives.jsx';
 import { d1, n, pct, sequentialStep } from '../../utils/format.js';
+
+/**
+ * Curva de adopcion: acumulado de cada modelo con seguimiento diario, en una
+ * sola escala de piezas.
+ *
+ * Responde la pregunta que el acumulado del mes no puede: si un lanzamiento
+ * arranco y a que ritmo. Las series van en el orden fijo de la paleta, asi que
+ * quitar un modelo no repinta los demas; ademas del recuadro de leyenda, cada
+ * linea lleva su nombre al final, porque los tonos claros de la paleta no
+ * alcanzan 3:1 contra el fondo y el color por si solo no puede ser la unica
+ * forma de identificarlas.
+ */
+export function AdoptionCurve({ models, days, cutoffDay, colorOf, height = 280 }) {
+  const data = Array.from({ length: days }, (_, i) => {
+    const row = { day: i + 1 };
+    for (const m of models) row[m.model] = i < cutoffDay ? m.cumulative[i] : null;
+    return row;
+  });
+
+  // Dos modelos que terminan casi en la misma altura pisarian su etiqueta uno
+  // sobre el otro, asi que solo se rotula el de arriba de cada grupo cercano;
+  // los demas quedan identificados por la leyenda y por la tabla de abajo.
+  const endOf = (m) => m.cumulative[cutoffDay - 1] || 0;
+  const top = Math.max(...models.map(endOf), 1);
+  const ordered = [...models].sort((a, b) => endOf(b) - endOf(a));
+  const labelled = new Set();
+  let lastLabelled = Infinity;
+  for (const m of ordered) {
+    if (lastLabelled - endOf(m) >= top * 0.045) {
+      labelled.add(m.model);
+      lastLabelled = endOf(m);
+    }
+  }
+  if (ordered.length) labelled.add(ordered[0].model);
+
+  return (
+    <>
+      <Legend items={models.map((m) => ({ label: m.model, color: colorOf(m.model) }))} />
+      <ResponsiveContainer width="100%" height={height}>
+        <ComposedChart data={data} margin={{ top: 8, right: 96, bottom: 4, left: 4 }}>
+          <CartesianGrid {...gridProps} />
+          <XAxis dataKey="day" {...axisProps} interval={days > 20 ? 2 : 0} />
+          <YAxis {...axisProps} width={52} tickFormatter={(v) => n(v)} />
+          {models.map((m) => (
+            <Line
+              key={m.model}
+              type="monotone"
+              dataKey={m.model}
+              name={m.model}
+              stroke={colorOf(m.model)}
+              strokeWidth={2}
+              dot={false}
+              connectNulls={false}
+              isAnimationActive={false}
+            >
+              <LabelList
+                dataKey={m.model}
+                content={(props) => {
+                  // Solo el ultimo punto lleva etiqueta: una por linea, no una
+                  // por dia.
+                  if (props.index !== cutoffDay - 1 || !labelled.has(m.model)) return null;
+                  return (
+                    <text x={props.x + 6} y={props.y} dy={3} fontSize={10.5} fill="var(--text-secondary)">
+                      {m.model.replace(/^HONOR /, '')}
+                    </text>
+                  );
+                }}
+              />
+            </Line>
+          ))}
+          <LineTooltip title={(day) => `Dia ${day}`} format={(v) => n(v)} />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </>
+  );
+}
 
 /**
  * Curva de avance: acumulado real contra la curva de target y la proyeccion

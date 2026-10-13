@@ -52,6 +52,10 @@ function hydrateMeta(row) {
     modelNames: meta.modelNames || [],
     promoterCount: meta.promoterCount ?? null,
     leaderCount: meta.leaderCount ?? null,
+    trackedModels: meta.trackedModels || [],
+    // Los libros anteriores a octubre si traian IOT; los nuevos no. Se asume
+    // que si no viene la marca es un archivo viejo, donde IOT si se medía.
+    hasIot: meta.hasIot ?? true,
   };
 }
 

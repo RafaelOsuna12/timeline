@@ -139,6 +139,30 @@ La distinción importa: un equipo puede no llegar por **falta de cobertura**
 calor separa ambos casos —celda gris para la ausencia, celda clara con borde
 para el día en piso sin venta— porque la acción correctiva es distinta.
 
+## Seguimiento diario por modelo
+
+Los modelos que traen hoja diaria propia admiten un análisis que el acumulado
+del mes no permite, porque este último dice *cuánto* se vendió pero no *cuándo
+arrancó* ni *quién lo está moviendo*:
+
+| Indicador | Qué responde |
+|---|---|
+| Curva de adopción | El acumulado día a día de cada modelo, en una sola escala |
+| Primera venta | En qué día del mes se colocó la primera pieza |
+| Mejor día | El pico y de cuánto fue |
+| **Cobertura de promotores** | Cuántos han colocado al menos una pieza, sobre el total |
+| Piezas por vendedor | El promedio entre quienes sí lo venden |
+| Reparto por región y canal | Dónde está entrando y dónde no |
+
+La **cobertura** suele explicar más que el total: 500 piezas repartidas entre
+120 promotores y 500 en manos de 20 son dos situaciones distintas, y solo la
+segunda depende de unas pocas personas. En el corte del 12 de octubre de 2026,
+el X5d iba en 73 % de cobertura mientras el 600 Elite estaba en 4 %.
+
+La vista permite además listar a **quienes no han colocado una sola pieza** de
+un modelo. Es un punto de partida para revisar, no una conclusión: un promotor
+sin piezas no necesariamente tiene el modelo en piso.
+
 ## Promotores con más de una tienda
 
 El Excel trae **una fila por plaza** (tienda + asesor), así que un promotor que

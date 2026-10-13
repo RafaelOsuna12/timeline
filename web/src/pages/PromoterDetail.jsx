@@ -44,6 +44,7 @@ export default function PromoterDetail() {
 }
 
 function Detail({ data }) {
+  const hasIot = data.meta?.hasIot !== false;
   const p = data.promoter;
   const ctx = data.context;
   const closed = ctx.cutoffDay >= ctx.daysInMonth;
@@ -77,7 +78,12 @@ function Detail({ data }) {
           meta={`${pct(p.projectedAch)} del target`}
           tone={statusTone(p.status)}
         />
-        <Kpi label="Sell-out total" value={n(p.soAll)} unit="pzs" meta={`Incluye ${n(p.soIot)} pzs de IOT`} />
+        <Kpi
+          label="Sell-out total"
+          value={n(p.soAll)}
+          unit="pzs"
+          meta={hasIot ? `Incluye ${n(p.soIot)} pzs de IOT` : 'Todas las series del portafolio'}
+        />
         <Kpi
           label="Asistencia"
           value={`${n(p.attendanceDays)}/${ctx.cutoffDay}`}
@@ -138,7 +144,7 @@ function Detail({ data }) {
               // bandas de color del ACH%, que aqui significarian otra cosa.
               { key: 'share', label: 'Participacion', numeric: true, render: (s) => pct(s.share) },
               { key: 'soAll', label: 'SO total', numeric: true, render: (s) => n(s.soAll) },
-              { key: 'soIot', label: 'IOT', numeric: true, render: (s) => n(s.soIot) },
+              ...(hasIot ? [{ key: 'soIot', label: 'IOT', numeric: true, render: (s) => n(s.soIot) }] : []),
               { key: 'workedDays', label: 'Dias en piso', numeric: true, render: (s) => n(s.workedDays) },
               { key: 'zeroDays', label: 'Dias en cero', numeric: true, render: (s) => n(s.zeroDays) },
               { key: 'productivity', label: 'Pzs/dia', numeric: true, render: (s) => d2(s.productivity) },

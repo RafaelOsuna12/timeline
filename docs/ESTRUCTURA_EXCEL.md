@@ -26,20 +26,36 @@ se descartan.
 
 ## Hojas que se leen
 
+Los nombres de las hojas cambian de un mes a otro, así que se localizan por
+**patrón** y no por nombre exacto: la hoja maestra pasó de
+`1.Daily_Retail_FF_SO_Target` a `1.DailySO_Retail_FF_Target` —con el `SO` en
+otro lugar— y ambas formas se leen igual.
+
 | Hoja | Qué aporta |
 |---|---|
-| `1.Daily_Retail_FF_SO_Target` | **Base maestra.** Un renglón por promotor con canal, región, tienda, supervisor, CM, tipo de plaza, targets mensuales y las tres series diarias (sell-out de modelos foco, asistencia y días en cero). |
+| `1.DailySO_Retail_FF_Target` | **Base maestra.** Un renglón por promotor con canal, región, tienda, supervisor, CM, tipo de plaza, targets mensuales y las tres series diarias (sell-out de modelos foco, asistencia y días en cero). |
 | `2.Daily_SORetail_FF-All_Series` | Sell-out diario de **todas las series**, no solo los modelos foco. |
 | `3.Monthly_SO_FOCUS_Models` | Mezcla mensual por promotor: piezas de cada modelo foco más IOT. |
-| `4.Daily_Retail_FF_SO_IOT` | Sell-out diario de accesorios y wearables (IOT). |
+| `4.Daily_Retail_FF_SO_IOT` | Sell-out diario de accesorios y wearables (IOT). **Dejó de venir a partir de octubre de 2026**: cuando falta, el tablero omite el indicador en vez de mostrar un cero que se leería como "no vendió". |
 | `00.BY_Supervisors&CM` | Estructura de equipos: bloques por región con renglones `SP` (supervisor) y `CM` (city manager), sus FF a cargo y sus series diarias. |
-| `Daily_SO_*_Model` | Serie diaria por promotor de cada modelo foco (`Watch6`, `M8L`, `H600`, `H600e`, `X5d`…). |
+| `Daily_SO_*` | Serie diaria por promotor de cada modelo con seguimiento. Conviven dos formas: la antigua `Daily_SO_Watch6_Model` y la nueva, numerada y sin sufijo (`4.Daily_SO_X5D`, `5.Daily_SO_H600_Elite`, `6.Daily_SO_X6e`, `7.Daily_SO_X7e`). Son las que alimentan la curva de adopción. |
 | `SO_Model` | Sell-out de productos clave por canal y modelo, con número de tiendas y productividad. |
 | `X8D`, `M8L` | Desglose del modelo por versión de operador y por color. |
 
-Las hojas `DB_from_Retail_*`, `so-qty`, `so-imei`, `pv_mod` y las `FF-*W##` son
-volcados intermedios que alimentan las fórmulas del libro; el sistema no las
-necesita porque lee los resultados ya calculados.
+Las hojas `DB_from_Retail_*`, `DB_from_x6c_*`, `so-qty`, `so-imei`, `pv_mod` y
+`FF-*W##-DATA` son volcados intermedios que alimentan las fórmulas del libro; el
+sistema no las necesita porque lee los resultados ya calculados.
+
+Tampoco se leen, por ahora: `INV_Launch_WK##` (inventario por tienda de los
+modelos del lanzamiento), los padrones semanales `FF-LW##` / `FF-VW##` (plaza
+por plaza con estatus `COVERED`/`VACANCY`, útiles para medir rotación),
+`Watch6_Model (0 Sales)` —que el tablero puede deducir solo— y
+`0.Daily_Retail_H200`, que cubre apenas 14 promotores.
+
+Los modelos de la mezcla mensual se detectan por su encabezado (`HONOR …`), así
+que los que se agregaron en octubre —`HONOR X6e`, `HONOR X7e` y
+`HONOR 600 Elite`— entraron sin tocar el código. El canal `ELEKTRA`, también
+nuevo, sí se registró explícitamente.
 
 ## Columnas clave de la hoja base
 

@@ -88,6 +88,8 @@ export function saveSnapshot(dataset, { storedFile = null, hash = null, uploaded
         warnings: meta.warnings || [],
         sheetNames: meta.sheetNames || [],
         modelNames: meta.modelNames || [],
+        trackedModels: meta.trackedModels || [],
+        hasIot: meta.hasIot ?? true,
         parsedAt: meta.parsedAt,
         promoterCount: dataset.promoters.length,
         leaderCount: dataset.supervisors.length,

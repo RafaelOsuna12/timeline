@@ -574,6 +574,11 @@ export function buildModels(snapshot, filters = {}) {
     return { ...m, ...base };
   });
 
+  // Seguimiento diario de los modelos que traen hoja propia. Es lo unico que
+  // permite ver como arranca un lanzamiento: la mezcla mensual dice cuanto se
+  // vendio, pero no cuando empezo ni quien lo esta moviendo.
+  const tracked = buildTrackedModels(ctx, rows, modelSeries);
+
   // Productos clave por canal (hoja SO_Model): solo tiene sentido sin filtrar
   // por persona, porque viene agregada de origen.
   const keyProducts = snapshot.modelChannel.map((r) => ({
@@ -591,6 +596,7 @@ export function buildModels(snapshot, filters = {}) {
     context: ctx,
     meta: snapshot.meta,
     focusModels,
+    tracked,
     keyProducts: [...byChannel.entries()].map(([channel, models]) => ({
       channel,
       models: models.sort((a, b) => (b.total || 0) - (a.total || 0)),
@@ -601,6 +607,95 @@ export function buildModels(snapshot, filters = {}) {
     })),
     variants: snapshot.variants,
   };
+}
+
+/**
+ * Modelos con serie diaria propia.
+ *
+ * Para cada uno se arma lo que no se puede leer del acumulado mensual: en que
+ * dia arranco, como viene la curva, cuantos promotores ya lo colocaron y
+ * cuantos no, y como se reparte entre regiones y canales. La lista de
+ * promotores va una sola vez, con las cantidades de cada modelo, para que la
+ * vista pueda cruzar sin pedir otra consulta.
+ */
+function buildTrackedModels(ctx, rows, modelSeries) {
+  const names = [...modelSeries.keys()];
+  if (!names.length) return null;
+
+  const people = collapsePersons(rows, ctx.daysInMonth);
+  const upto = (series) => sum((series || []).slice(0, ctx.cutoffDay));
+
+  const promoters = people.map((p) => {
+    const qty = {};
+    for (const name of names) qty[name] = round(upto(p.modelDaily?.[name]), 0);
+    return {
+      key: p.id,
+      name: p.advisor,
+      store: p.store,
+      stores: p.stores || [p.store],
+      storeCount: p.storeCount || 1,
+      region: p.region,
+      channel: p.channel,
+      cm: p.cm,
+      supervisor: p.supervisor,
+      qty,
+      total: round(
+        names.reduce((a, m) => a + qty[m], 0),
+        0
+      ),
+    };
+  });
+
+  const breakdown = (key, model) => {
+    const acc = new Map();
+    for (const p of promoters) {
+      const k = p[key] || 'SIN ASIGNAR';
+      if (!acc.has(k)) acc.set(k, { name: k, qty: 0, sellers: 0, headcount: 0 });
+      const e = acc.get(k);
+      e.qty += p.qty[model];
+      e.headcount += 1;
+      if (p.qty[model] > 0) e.sellers += 1;
+    }
+    const total = [...acc.values()].reduce((a, b) => a + b.qty, 0);
+    return [...acc.values()]
+      .map((e) => ({ ...e, share: total ? round(e.qty / total, 4) : null }))
+      .sort((a, b) => b.qty - a.qty);
+  };
+
+  const models = names.map((model) => {
+    const series = modelSeries.get(model);
+    const upToCut = series.slice(0, ctx.cutoffDay);
+    const total = round(sum(upToCut), 0);
+    const sellers = promoters.filter((p) => p.qty[model] > 0).length;
+    const firstDay = upToCut.findIndex((v) => v > 0);
+    const best = upToCut.reduce((b, v, i) => (v > upToCut[b] ? i : b), 0);
+    const storeKeys = new Set();
+    for (const p of promoters) if (p.qty[model] > 0) for (const st of p.stores) storeKeys.add(st);
+
+    return {
+      model,
+      total,
+      series,
+      cumulative: cumulative(series),
+      dailyAvg: ctx.cutoffDay ? round(total / ctx.cutoffDay, 2) : 0,
+      // Dias transcurridos desde la primera venta: en un lanzamiento el mes no
+      // empieza cuando empieza el calendario.
+      firstDay: firstDay === -1 ? null : firstDay + 1,
+      daysSelling: firstDay === -1 ? 0 : ctx.cutoffDay - firstDay,
+      bestDay: total ? best + 1 : null,
+      bestDayQty: total ? round(upToCut[best], 0) : 0,
+      sellers,
+      headcount: promoters.length,
+      coverage: promoters.length ? round(sellers / promoters.length, 4) : null,
+      storeCount: storeKeys.size,
+      perSeller: sellers ? round(total / sellers, 2) : null,
+      byRegion: breakdown('region', model),
+      byChannel: breakdown('channel', model),
+    };
+  });
+
+  models.sort((a, b) => b.total - a.total);
+  return { models, promoters, headcount: promoters.length };
 }
 
 /* ------------------------------ vista tiendas ------------------------------ */

@@ -42,6 +42,9 @@ export default function Overview() {
 }
 
 function OverviewBody({ data, refreshing, filters }) {
+  // Desde octubre el libro ya no trae la hoja de IOT: donde no se mide, el
+  // indicador se omite en vez de mostrar un cero que se leeria como "no vendio".
+  const hasIot = data.meta?.hasIot !== false;
   const t = data.total;
   const ctx = data.context;
   const closed = ctx.cutoffDay >= ctx.daysInMonth;
@@ -102,7 +105,11 @@ function OverviewBody({ data, refreshing, filters }) {
           label="Sell-out total (todas las series)"
           value={n(t.soAll)}
           unit="pzs"
-          meta={`Incluye ${n(t.soIot)} pzs de IOT · ${pct(t.achAll)} del target HQ`}
+          meta={
+            hasIot
+              ? `Incluye ${n(t.soIot)} pzs de IOT · ${pct(t.achAll)} del target HQ`
+              : `${pct(t.achAll)} del target HQ`
+          }
         />
         <Kpi
           label="Productividad"

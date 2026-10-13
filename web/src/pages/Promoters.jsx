@@ -28,7 +28,8 @@ const GROUP_LABELS = {
 };
 
 export default function Promoters() {
-  const { filters, hasData } = useData();
+  const { filters, hasData, activeSnapshot } = useData();
+  const hasIot = activeSnapshot?.hasIot !== false;
   const link = useFilteredLink();
   const navigate = useFilteredNavigate();
   const [group, setGroup] = useState('todos');
@@ -115,7 +116,7 @@ export default function Promoters() {
                 { key: 'target', label: 'Target', numeric: true, render: (p) => n(p.target) },
                 { key: 'so', label: 'SO foco', numeric: true, render: (p) => <BarCell value={p.so} max={maxSo} /> },
                 { key: 'soAll', label: 'SO total', numeric: true, render: (p) => n(p.soAll) },
-                { key: 'soIot', label: 'IOT', numeric: true, render: (p) => n(p.soIot) },
+                ...(hasIot ? [{ key: 'soIot', label: 'IOT', numeric: true, render: (p) => n(p.soIot) }] : []),
                 { key: 'ach', label: 'ACH%', numeric: true, render: (p) => <AchCell value={p.ach} /> },
                 { key: 'forecast', label: 'Cierre proy.', numeric: true, render: (p) => n(p.forecast) },
                 { key: 'attendanceDays', label: 'Dias trab.', numeric: true, render: (p) => n(p.attendanceDays) },

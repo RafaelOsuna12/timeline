@@ -21,13 +21,16 @@ import ExcelJS from 'exceljs';
 /** Hojas que el parser necesita; el resto solo se cuenta, no se guarda. */
 const NEEDED_SHEETS = [
   /BY[_ ]?SUPERVISORS/i,
-  /DAILY[_ ]?RETAIL[_ ]?FF[_ ]?SO[_ ]?TARGET/i,
+  // La hoja maestra y la de IOT aparecen con el `SO` en dos posiciones segun
+  // la version del libro; ambas formas se materializan.
+  /DAILY[_ ]?(?:SO[_ ]?)?RETAIL[_ ]?FF[_ ]?(?:SO[_ ]?)?TARGET/i,
   /DAILY[_ ]?SORETAIL[_ ]?FF.*ALL[_ ]?SERIES/i,
   /MONTHLY[_ ]?SO[_ ]?FOCUS[_ ]?MODELS/i,
-  /DAILY[_ ]?RETAIL[_ ]?FF[_ ]?SO[_ ]?IOT/i,
+  /DAILY[_ ]?(?:SO[_ ]?)?RETAIL[_ ]?FF[_ ]?(?:SO[_ ]?)?IOT/i,
   /^SO[_ ]?MODEL$/i,
-  /^DAILY[_ ]?SO[_ ]?.+[_ ]?MODEL$/i,
-  /^(X8D|M8L|X7D|X6C|X5D)$/i,
+  // Series por modelo: `Daily_SO_Watch6_Model` y `4.Daily_SO_X5D`.
+  /^(?:[0-9]+\.)?\s*DAILY[_ ]?SO[_ ]?.+$/i,
+  /^(X8D|M8L|X7D|X6C|X5D|X6E|X7E)$/i,
 ];
 
 // Margen amplio sobre lo que hoy usan las hojas (168 columnas, ~400 filas) para

@@ -4,9 +4,10 @@ import { api } from '../api.js';
 import { useData, useQuery } from '../app/context.jsx';
 import AppShell from '../components/AppShell.jsx';
 import FilterBar from '../components/FilterBar.jsx';
-import { BarCell, Card, DataTable, Empty, ErrorBox, Kpi, Spinner, ViewToggle } from '../components/ui.jsx';
-import { ShareBars } from '../components/charts/index.jsx';
-import { d2, n, pct } from '../utils/format.js';
+import { BarCell, Card, DataTable, Empty, ErrorBox, Kpi, Spinner, StoreCell, ViewToggle } from '../components/ui.jsx';
+import { AdoptionCurve, DailyBars, ShareBars } from '../components/charts/index.jsx';
+import { d2, n, pct, seriesColorFor } from '../utils/format.js';
+import { promoterPath, useFilteredNavigate } from '../app/links.js';
 
 export default function Models() {
   const { filters, hasData } = useData();
@@ -24,6 +25,7 @@ export default function Models() {
       {data && (
         <div className={`stack${refreshing ? ' is-refreshing' : ''}`}>
           <FocusModels data={data} />
+          {data.tracked && <Tracked tracked={data.tracked} ctx={data.context} />}
           <KeyProducts groups={data.keyProducts} />
           {data.variants.length > 0 && <Variants variants={data.variants} />}
         </div>
@@ -76,6 +78,217 @@ function FocusModels({ data }) {
         )}
       </Card>
     </>
+  );
+}
+
+/**
+ * Seguimiento diario de los modelos que traen hoja propia.
+ *
+ * El acumulado del mes dice cuanto se vendio; esto dice cuando arranco, a que
+ * ritmo va y, sobre todo, cuantos promotores ya lo colocaron. En un lanzamiento
+ * la cobertura —cuanta gente lo ha vendido al menos una vez— explica mas que el
+ * total: 500 piezas repartidas entre 120 promotores y 500 en manos de 20 son
+ * dos situaciones distintas.
+ */
+function Tracked({ tracked, ctx }) {
+  const navigate = useFilteredNavigate();
+  const [sel, setSel] = useState(tracked.models[0]?.model || null);
+  const [view, setView] = useState('chart');
+  const [soloCero, setSoloCero] = useState(false);
+
+  // El color sigue al modelo y no a su posicion, para que cambiar de seleccion
+  // no repinte las curvas.
+  const catalog = useMemo(() => tracked.models.map((m) => m.model), [tracked.models]);
+  const colorOf = (model) => seriesColorFor(model, catalog);
+
+  const activo = tracked.models.find((m) => m.model === sel) || tracked.models[0];
+  const filas = useMemo(() => {
+    if (!activo) return [];
+    const base = tracked.promoters.map((p) => ({ ...p, qty: p.qty[activo.model] || 0 }));
+    return soloCero ? base.filter((p) => p.qty === 0) : base;
+  }, [tracked.promoters, activo, soloCero]);
+
+  if (!tracked.models.length) return null;
+  const maxQty = Math.max(...filas.map((f) => f.qty), 1);
+
+  return (
+    <>
+      <Card
+        title="Curva de adopcion por modelo"
+        hint="Acumulado dia a dia de cada modelo con seguimiento diario. Sirve para ver que tan rapido arranco un lanzamiento, no solo cuanto lleva vendido."
+      >
+        <AdoptionCurve
+          models={tracked.models}
+          days={ctx.daysInMonth}
+          cutoffDay={ctx.cutoffDay}
+          colorOf={colorOf}
+          height={290}
+        />
+        <DataTable
+          columns={[
+            { key: 'model', label: 'Modelo', cellClass: 'name' },
+            { key: 'total', label: 'Piezas', numeric: true, render: (m) => n(m.total) },
+            { key: 'dailyAvg', label: 'Pzs/dia', numeric: true, render: (m) => d2(m.dailyAvg) },
+            { key: 'firstDay', label: 'Primera venta', numeric: true, render: (m) => (m.firstDay ? `Dia ${m.firstDay}` : '—') },
+            {
+              key: 'bestDay',
+              label: 'Mejor dia',
+              numeric: true,
+              sortValue: (m) => m.bestDayQty,
+              render: (m) => (m.bestDay ? `Dia ${m.bestDay} · ${n(m.bestDayQty)} pzs` : '—'),
+            },
+            {
+              key: 'coverage',
+              label: 'Promotores que lo venden',
+              numeric: true,
+              render: (m) => `${n(m.sellers)} de ${n(m.headcount)} (${pct(m.coverage, 0)})`,
+            },
+            { key: 'storeCount', label: 'Tiendas', numeric: true, render: (m) => n(m.storeCount) },
+            { key: 'perSeller', label: 'Pzs por vendedor', numeric: true, render: (m) => d2(m.perSeller) },
+          ]}
+          rows={tracked.models}
+          rowKey={(m) => m.model}
+          initialSort={{ key: 'total', dir: 'desc' }}
+          onRowClick={(m) => setSel(m.model)}
+        />
+      </Card>
+
+      {activo && (
+        <Card
+          title={`Detalle de ${activo.model}`}
+          hint="Venta diaria, reparto por region y canal, y quien lo esta colocando. Un promotor sin piezas no necesariamente tiene el modelo en piso, pero es por donde empieza la revision."
+          actions={
+            <div className="row">
+              {tracked.models.map((m) => (
+                <button
+                  key={m.model}
+                  type="button"
+                  className={`btn btn--sm${m.model === activo.model ? ' btn--primary' : ''}`}
+                  onClick={() => setSel(m.model)}
+                >
+                  {m.model.replace(/^HONOR /, '')}
+                </button>
+              ))}
+            </div>
+          }
+        >
+          <section className="kpis" style={{ marginBottom: 14 }}>
+            <Kpi label="Piezas en el corte" value={n(activo.total)} unit="pzs" meta={`${d2(activo.dailyAvg)} pzs/dia`} />
+            <Kpi
+              label="Cobertura de promotores"
+              value={pct(activo.coverage, 0)}
+              meta={`${n(activo.sellers)} de ${n(activo.headcount)} han colocado al menos una pieza`}
+              progress={activo.coverage}
+              tone={activo.coverage < 0.3 ? 'warning' : undefined}
+            />
+            <Kpi label="Tiendas con venta" value={n(activo.storeCount)} meta={`${d2(activo.perSeller)} pzs por promotor que lo vende`} />
+            <Kpi
+              label="Dias vendiendo"
+              value={n(activo.daysSelling)}
+              meta={activo.firstDay ? `Primera venta el dia ${activo.firstDay} de ${ctx.daysInMonth}` : 'Sin venta en el corte'}
+            />
+          </section>
+
+          <DailyBars
+            daily={activo.series.map((v, i) => ({
+              day: i + 1,
+              so: v,
+              isFuture: i + 1 > ctx.cutoffDay,
+            }))}
+            height={180}
+          />
+
+          <div className="grid grid--2" style={{ marginTop: 14 }}>
+            <Breakdown title="Por region" rows={activo.byRegion} />
+            <Breakdown title="Por canal" rows={activo.byChannel} />
+          </div>
+
+          <div className="spread" style={{ margin: '16px 0 8px' }}>
+            <h4 style={{ margin: 0, fontSize: 13, fontWeight: 620 }}>
+              Promotores {soloCero ? 'sin una sola pieza' : 'y sus piezas'} ({n(filas.length)})
+            </h4>
+            <div className="row">
+              <button type="button" className={`btn btn--sm${soloCero ? ' btn--primary' : ''}`} onClick={() => setSoloCero((v) => !v)}>
+                {soloCero ? 'Ver todos' : 'Solo los que no lo han vendido'}
+              </button>
+              <ViewToggle value={view} onChange={setView} />
+            </div>
+          </div>
+
+          {view === 'chart' ? (
+            <DataTable
+              columns={[
+                { key: 'name', label: 'Promotor', cellClass: 'name' },
+                {
+                  key: 'store',
+                  label: 'Tienda',
+                  cellClass: 'dim',
+                  render: (p) => <StoreCell store={p.store} stores={p.stores} count={p.storeCount} />,
+                },
+                { key: 'region', label: 'Region', cellClass: 'dim' },
+                { key: 'channel', label: 'Canal', cellClass: 'dim' },
+                { key: 'supervisor', label: 'Supervisor', cellClass: 'dim' },
+                {
+                  key: 'qty',
+                  label: `Piezas de ${activo.model.replace(/^HONOR /, '')}`,
+                  numeric: true,
+                  render: (p) => <BarCell value={p.qty} max={maxQty} color={colorOf(activo.model)} />,
+                },
+                { key: 'total', label: 'Total con seguimiento', numeric: true, render: (p) => n(p.total) },
+              ]}
+              rows={filas}
+              initialSort={{ key: 'qty', dir: 'desc' }}
+              onRowClick={(p) => navigate(promoterPath(p.key))}
+              emptyText="Ningun promotor en esta condicion."
+            />
+          ) : (
+            <DataTable
+              columns={[
+                { key: 'name', label: 'Promotor', cellClass: 'name' },
+                ...tracked.models.map((m) => ({
+                  key: m.model,
+                  label: m.model.replace(/^HONOR /, ''),
+                  numeric: true,
+                  sortValue: (p) => p.qty[m.model] || 0,
+                  render: (p) => n(p.qty[m.model] || 0),
+                })),
+                { key: 'total', label: 'Total', numeric: true, render: (p) => n(p.total) },
+              ]}
+              rows={tracked.promoters}
+              initialSort={{ key: 'total', dir: 'desc' }}
+              onRowClick={(p) => navigate(promoterPath(p.key))}
+            />
+          )}
+        </Card>
+      )}
+    </>
+  );
+}
+
+/** Reparto de un modelo en una dimension, con la cobertura de cada grupo. */
+function Breakdown({ title, rows }) {
+  const total = rows.reduce((a, r) => a + r.qty, 0);
+  return (
+    <div>
+      <h4 style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 620 }}>{title}</h4>
+      <DataTable
+        columns={[
+          { key: 'name', label: title.replace('Por ', ''), cellClass: 'name' },
+          { key: 'qty', label: 'Piezas', numeric: true, render: (r) => n(r.qty) },
+          { key: 'share', label: 'Participacion', numeric: true, render: (r) => pct(total ? r.qty / total : null) },
+          {
+            key: 'sellers',
+            label: 'Lo venden',
+            numeric: true,
+            sortValue: (r) => (r.headcount ? r.sellers / r.headcount : 0),
+            render: (r) => `${n(r.sellers)} de ${n(r.headcount)}`,
+          },
+        ]}
+        rows={rows}
+        rowKey={(r) => r.name}
+        initialSort={{ key: 'qty', dir: 'desc' }}
+      />
+    </div>
   );
 }
 

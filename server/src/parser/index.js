@@ -23,24 +23,43 @@ import {
   textAt,
 } from './layout.js';
 
+/**
+ * Las hojas se localizan por patron, no por nombre exacto, porque el libro los
+ * cambia de un mes a otro: la hoja maestra paso de `1.Daily_Retail_FF_SO_Target`
+ * a `1.DailySO_Retail_FF_Target`, con el `SO` en otro lugar. Los patrones
+ * aceptan ambas formas para que un archivo viejo y uno nuevo se lean igual.
+ */
 const SHEET_PATTERNS = {
   supervisors: /BY[_ ]?SUPERVISORS/i,
-  dailyTarget: /DAILY[_ ]?RETAIL[_ ]?FF[_ ]?SO[_ ]?TARGET/i,
+  dailyTarget: /DAILY[_ ]?(?:SO[_ ]?)?RETAIL[_ ]?FF[_ ]?(?:SO[_ ]?)?TARGET/i,
   dailyAllSeries: /DAILY[_ ]?SORETAIL[_ ]?FF.*ALL[_ ]?SERIES/i,
   monthlyModels: /MONTHLY[_ ]?SO[_ ]?FOCUS[_ ]?MODELS/i,
-  dailyIot: /DAILY[_ ]?RETAIL[_ ]?FF[_ ]?SO[_ ]?IOT/i,
+  dailyIot: /DAILY[_ ]?(?:SO[_ ]?)?RETAIL[_ ]?FF[_ ]?(?:SO[_ ]?)?IOT/i,
   soModel: /^SO[_ ]?MODEL$/i,
 };
 
-const MODEL_SHEET = /^DAILY[_ ]?SO[_ ]?(.+?)[_ ]?MODEL$/i;
+/**
+ * Hojas de serie diaria por modelo.
+ *
+ * Conviven dos formas: la antigua `Daily_SO_Watch6_Model` y la nueva, numerada
+ * y sin sufijo, `4.Daily_SO_X5D`. El sufijo `_Model` y el prefijo numerico son
+ * opcionales, pero eso hace que el patron tambien alcance a las hojas que
+ * empiezan igual sin ser de un modelo (`1.DailySO_Retail_FF_Target`,
+ * `2.Daily_SORetail_FF-All_Series`), asi que se descartan por su contenido.
+ */
+const MODEL_SHEET = /^(?:[0-9]+\.)?\s*DAILY[_ ]?SO[_ ]?(.+?)(?:[_ ]MODEL)?$/i;
+const NOT_A_MODEL = /RETAIL|SERIES|TARGET|IOT/i;
 
-/** Etiqueta legible para cada hoja Daily_SO_<X>_Model. */
+/** Etiqueta legible para cada hoja de modelo, igual a la de la mezcla mensual. */
 const MODEL_SHEET_LABELS = {
   H600E: 'HONOR 600e',
   H600: 'HONOR 600',
+  H600ELITE: 'HONOR 600 Elite',
   M8L: 'HONOR Magic8 Lite',
   WATCH6: 'HONOR Watch 6',
   X5D: 'HONOR X5d',
+  X6E: 'HONOR X6e',
+  X7E: 'HONOR X7e',
 };
 
 const REGION_RE = /^R\s?([0-9]{1,2})$/i;
@@ -67,6 +86,7 @@ export function normalizeChannel(value) {
   if (s.startsWith('LIVERPOOL') || s === 'LVP') return 'LIVERPOOL';
   if (s.startsWith('SEARS')) return 'SEARS';
   if (s.startsWith('MOVISTAR')) return 'MOVISTAR';
+  if (s.startsWith('ELEKTRA')) return 'ELEKTRA';
   return s;
 }
 
@@ -611,11 +631,15 @@ export function parseWorkbook(wb, { sourceName } = {}) {
   const sheets = {};
   for (const [name, pattern] of Object.entries(SHEET_PATTERNS)) {
     sheets[name] = resolveSheet(wb, pattern);
-    if (!sheets[name]) warnings.push(`No se encontro la hoja para "${name}".`);
+    // La hoja de IOT dejo de venir en el libro; su ausencia se registra en
+    // `hasIot` y no como un aviso, que haria ruido en cada carga.
+    if (!sheets[name] && name !== 'dailyIot') warnings.push(`No se encontro la hoja para "${name}".`);
   }
   if (!sheets.dailyTarget) {
     throw new Error(
-      'El archivo no contiene la hoja "1.Daily_Retail_FF_SO_Target". Verifica que sea el reporte diario correcto.'
+      'El archivo no contiene la hoja de sell-out diario con target ' +
+        '("1.DailySO_Retail_FF_Target" o "1.Daily_Retail_FF_SO_Target"). ' +
+        'Verifica que sea el reporte diario correcto.'
     );
   }
 
@@ -651,10 +675,13 @@ export function parseWorkbook(wb, { sourceName } = {}) {
   }
 
   // --- Serie diaria IOT ----------------------------------------------------
+  let hasIot = false;
   if (sheets.dailyIot) {
     const aux = parseDailyAuxSheet(sheets.dailyIot, period);
-    if (aux) for (const p of promoters) p.daily.iot = aux.byId.get(p.id) || emptySeries(period.daysInMonth);
-    else warnings.push('No se pudo leer la hoja de sell-out IOT.');
+    if (aux) {
+      hasIot = true;
+      for (const p of promoters) p.daily.iot = aux.byId.get(p.id) || emptySeries(period.daysInMonth);
+    } else warnings.push('No se pudo leer la hoja de sell-out IOT.');
   }
   for (const p of promoters) {
     if (!p.daily.iot) p.daily.iot = emptySeries(period.daysInMonth);
@@ -678,7 +705,10 @@ export function parseWorkbook(wb, { sourceName } = {}) {
   for (const p of promoters) if (!p.models) p.models = {};
 
   // --- Series diarias por modelo foco --------------------------------------
-  const modelDailySheets = wb.worksheets.filter((ws) => MODEL_SHEET.test(ws.name));
+  const modelDailySheets = wb.worksheets.filter((ws) => {
+    const m = MODEL_SHEET.exec(ws.name);
+    return Boolean(m) && !NOT_A_MODEL.test(m[1]);
+  });
   const modelDaily = [];
   for (const ws of modelDailySheets) {
     const m = MODEL_SHEET.exec(ws.name);
@@ -726,6 +756,10 @@ export function parseWorkbook(wb, { sourceName } = {}) {
       cutoffDate: `${period.year}-${String(period.month).padStart(2, '0')}-${String(cutoffDay).padStart(2, '0')}`,
       sheetNames: wb.sheetNames || wb.worksheets.map((ws) => ws.name),
       modelNames,
+      // Modelos con serie diaria propia, que son los que admiten seguimiento
+      // dia a dia ademas del acumulado del mes.
+      trackedModels: modelDaily.map((m) => m.model),
+      hasIot,
       warnings,
       parsedAt: new Date().toISOString(),
     },
