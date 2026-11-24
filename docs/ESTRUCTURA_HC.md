@@ -89,8 +89,8 @@ para ver el universo completo.
 
 ## Campos que se leen pero no se muestran
 
-`Tier` se guarda en la base de datos por si más adelante hace falta, pero no
-aparece en ninguna pantalla ni en las exportaciones.
+`Tier` y `Dirección` se guardan en la base de datos por si más adelante hacen
+falta, pero no aparecen en ninguna pantalla ni en las exportaciones.
 
 ## Cambios de esquema
 

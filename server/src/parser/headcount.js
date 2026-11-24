@@ -74,7 +74,20 @@ export function toIsoDate(value) {
   return null;
 }
 
-const upper = (v) => String(v ?? '').replace(/\s+/g, ' ').trim().toUpperCase();
+/**
+ * Encabezado normalizado para comparar.
+ *
+ * Se quitan los acentos ademas de los espacios: la hoja escribe "Direccion"
+ * con tilde y un patron sin ella no la encontraba, con lo que la columna se
+ * leia vacia.
+ */
+const upper = (v) =>
+  String(v ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toUpperCase();
 
 /* --------------------------------- roles --------------------------------- */
 

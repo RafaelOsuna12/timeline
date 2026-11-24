@@ -71,7 +71,6 @@ export function loadHeadcount(snapshotId) {
     locality: s.locality,
     cityClass: s.city_class,
     listing: s.listing,
-    address: s.address,
     channelStoreId: s.channel_store_id,
     coverageTime: s.coverage_time,
     // Una tienda esta activa cuando tiene plaza de promotor, con titular o
@@ -317,7 +316,6 @@ export function buildPersonDetail(snapshot, personKey) {
       state: s.state,
       city: s.city,
       active: s.active,
-      address: s.address,
       role: person.stores.find((x) => x.storeId === s.storeId)?.role || null,
       employment: person.stores.find((x) => x.storeId === s.storeId)?.employment || null,
       // Quien mas atiende esa tienda, sin repetir a la persona de la ficha.
@@ -380,7 +378,6 @@ export function buildStoreRoster(snapshot, filters = {}) {
         city: s.city,
         listing: s.listing,
         active: s.active,
-        address: s.address,
         staffed: s.staff.filter((a) => !a.vacancy).length,
         vacancies: s.staff.filter((a) => a.vacancy).length,
         staff: s.staff.map((a) => ({

@@ -132,7 +132,6 @@ function Detail({ data }) {
                     <span className="muted">—</span>
                   ),
               },
-              { key: 'address', label: 'Direccion', cellClass: 'dim', render: (s) => s.address || '—' },
             ]}
             rows={data.stores}
             rowKey={(s) => s.storeId}

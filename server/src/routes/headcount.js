@@ -126,7 +126,6 @@ const EXPORTS = {
       Cubiertas: s.staffed,
       Vacantes: s.vacancies,
       Plantilla: s.staff.map((a) => `${a.roleLabel}: ${a.vacancy ? 'VACANTE' : a.name}`).join(' | '),
-      Direccion: s.address,
     })),
   vacantes: (snap, filters) =>
     buildDirectory(snap, filters).vacancies.map((v) => ({
