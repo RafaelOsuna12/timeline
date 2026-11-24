@@ -251,7 +251,15 @@ function Directory({ filters, reloadKey }) {
   return (
     <div className={`stack${refreshing ? ' is-refreshing' : ''}`}>
       <section className="kpis">
-        <Kpi label="Personas en el corte" value={n(t.people)} meta={`Atienden ${n(t.stores)} tiendas`} />
+        <Kpi
+          label="Personas en el corte"
+          value={n(t.people)}
+          meta={
+            t.supportStores
+              ? `${n(t.stores)} tiendas base · ${n(t.supportStores)} de apoyo`
+              : `${n(t.stores)} tiendas base`
+          }
+        />
         <Kpi
           label="Cobertura de plazas"
           value={pct(t.coverage, 0)}
@@ -272,7 +280,17 @@ function Directory({ filters, reloadKey }) {
           columns={[
             { key: 'label', label: 'Rol', cellClass: 'name' },
             { key: 'people', label: 'Personas', numeric: true, render: (r) => n(r.people) },
-            { key: 'stores', label: 'Plazas cubiertas', numeric: true, render: (r) => n(r.stores) },
+            {
+              key: 'stores',
+              label: 'Tiendas base',
+              numeric: true,
+              render: (r) => (
+                <>
+                  {n(r.stores)}
+                  {r.support ? <span className="tag tag--soft">+{n(r.support)} apoyo</span> : null}
+                </>
+              ),
+            },
             { key: 'vacancies', label: 'Vacantes', numeric: true, render: (r) => n(r.vacancies || 0) },
           ]}
           rows={data.byRole}
@@ -300,7 +318,16 @@ function Directory({ filters, reloadKey }) {
               key: 'storeCount',
               label: 'Tiendas',
               numeric: true,
-              render: (p) => (p.storeCount ? n(p.storeCount) : '—'),
+              sortValue: (p) => p.storeCount,
+              render: (p) =>
+                p.storeCount || p.supportCount ? (
+                  <>
+                    {n(p.storeCount)}
+                    {p.supportCount ? <span className="tag tag--soft">+{n(p.supportCount)} apoyo</span> : null}
+                  </>
+                ) : (
+                  '—'
+                ),
             },
             { key: 'employment', label: 'Plaza', cellClass: 'dim', render: (p) => p.employment || '—' },
             { key: 'hireDate', label: 'Ingreso', cellClass: 'dim', render: (p) => p.hireDate || '—' },
@@ -341,11 +368,17 @@ function StoreRoster({ filters, reloadKey }) {
     <div className={`stack${refreshing ? ' is-refreshing' : ''}`}>
       <section className="kpis">
         <Kpi
-          label={soloActivas ? 'Tiendas activas' : 'Tiendas en el corte'}
-          value={n(data.totals.stores)}
-          meta={soloActivas ? 'Con plaza de promotor asignada' : `${n(data.totals.active)} de ellas activas`}
+          label="Tiendas base"
+          value={n(data.totals.base)}
+          meta={`Las que cuentan como tienda a trabajar${
+            data.totals.support ? ` · ${n(data.totals.support)} de apoyo aparte` : ''
+          }`}
         />
-        <Kpi label="Con personal asignado" value={n(data.totals.withStaff)} meta={`${n(data.totals.empty)} sin nadie asignado`} />
+        <Kpi
+          label={soloActivas ? 'Tiendas con plaza' : 'Tiendas en el archivo'}
+          value={n(data.totals.stores)}
+          meta={soloActivas ? `${n(data.totals.withStaff)} con personal asignado` : `${n(data.totals.empty)} sin nadie asignado`}
+        />
         <Kpi
           label="Con alguna vacante"
           value={n(data.totals.withVacancy)}
@@ -358,7 +391,7 @@ function StoreRoster({ filters, reloadKey }) {
         title={`Tiendas (${n(data.stores.length)})`}
         hint={
           soloActivas
-            ? 'Solo las tiendas con plaza de promotor, que son las que cuentan como asignadas para el supervisor mix y el city manager.'
+            ? 'Tiendas con plaza de promotor. Solo las base cuentan como tienda asignada para el supervisor mix y el city manager; las de apoyo son donde el promotor tambien puede vender.'
             : 'Todo el universo del archivo, incluidas las tiendas que aun no abren plaza de promotor.'
         }
         actions={
@@ -382,15 +415,18 @@ function StoreRoster({ filters, reloadKey }) {
             { key: 'channel', label: 'Canal', cellClass: 'dim' },
             { key: 'region', label: 'Region', cellClass: 'dim' },
             { key: 'city', label: 'Ciudad', cellClass: 'dim' },
-            ...(soloActivas
-              ? []
-              : [
-                  {
-                    key: 'active',
-                    label: 'Activa',
-                    render: (s) => (s.active ? 'Si' : <span className="muted">No</span>),
-                  },
-                ]),
+            {
+              key: 'floor',
+              label: 'Plaza',
+              render: (s) =>
+                s.floor === 'SUPPORT' ? (
+                  <span className="tag tag--soft">apoyo</span>
+                ) : s.floor === 'BASE' ? (
+                  'Base'
+                ) : (
+                  <span className="muted">sin plaza</span>
+                ),
+            },
             {
               key: 'staff',
               label: 'Plantilla',

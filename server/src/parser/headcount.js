@@ -138,19 +138,24 @@ const STORE_FIELDS = [
 ];
 
 /**
- * Roles cuya asignacion solo cuenta en tiendas activas.
+ * Roles cuya asignacion solo cuenta en tiendas base.
  *
  * Una tienda esta activa cuando tiene plaza de promotor, con titular o
- * vacante. El libro arrastra al supervisor mix y al city manager en todas las
- * tiendas del universo, incluidas las que todavia no abren plaza de promotor
- * (hoy 888 de 1,079), y contarlas les atribuiria tiendas que no atienden.
+ * vacante, y es **base** cuando esa plaza es BASE. Las de apoyo (SUPPORT) son
+ * tiendas donde el promotor puede vender ademas de la suya, no plazas que
+ * alguien tenga a cargo.
+ *
+ * El libro arrastra al supervisor mix y al city manager en todas las tiendas
+ * del universo. Contarlas les atribuiria tiendas que no atienden: de 1,079 del
+ * archivo, 191 tienen plaza de promotor y solo 168 son base, que es el numero
+ * real de tiendas a trabajar.
  *
  * No aplica al field rep, que cubre justamente las tiendas sin promotor —con
  * esta regla se quedaria en cero—, ni al trainer, que no se pidio.
  */
-const ROLES_SOLO_EN_ACTIVAS = new Set(['SUPERVISOR_MIX', 'CITY_MANAGER']);
+const ROLES_SOLO_EN_BASE = new Set(['SUPERVISOR_MIX', 'CITY_MANAGER']);
 
-/** El rol que define si una tienda esta activa. */
+/** El rol que define si una tienda esta activa y de que tipo es. */
 const ROL_QUE_ACTIVA = 'FIXED_PROMOTER';
 
 // Columnas de un bloque de rol que nunca son el nombre de la persona. Van
@@ -336,12 +341,18 @@ export function parseFF(rows) {
     }
   }
 
-  // Una tienda esta activa si tiene plaza de promotor, ocupada o vacante.
-  const activas = new Set(assignments.filter((a) => a.role === ROL_QUE_ACTIVA).map((a) => a.storeId));
-  for (const s of stores) s.active = activas.has(s.storeId);
+  // Una tienda esta activa si tiene plaza de promotor, ocupada o vacante; es
+  // base salvo que la plaza diga SUPPORT, que es la excepcion explicita.
+  const plazas = assignments.filter((a) => a.role === ROL_QUE_ACTIVA);
+  const activas = new Set(plazas.map((a) => a.storeId));
+  const base = new Set(plazas.filter((a) => a.employment !== 'SUPPORT').map((a) => a.storeId));
+  for (const s of stores) {
+    s.active = activas.has(s.storeId);
+    s.floor = base.has(s.storeId) ? 'BASE' : activas.has(s.storeId) ? 'SUPPORT' : null;
+  }
 
   const antes = assignments.length;
-  const vigentes = assignments.filter((a) => !ROLES_SOLO_EN_ACTIVAS.has(a.role) || activas.has(a.storeId));
+  const vigentes = assignments.filter((a) => !ROLES_SOLO_EN_BASE.has(a.role) || base.has(a.storeId));
   const descartadas = antes - vigentes.length;
 
   return {
@@ -349,7 +360,13 @@ export function parseFF(rows) {
     assignments: vigentes,
     blocks,
     warnings,
-    stats: { activeStores: activas.size, totalStores: stores.length, droppedAssignments: descartadas },
+    stats: {
+      totalStores: stores.length,
+      activeStores: activas.size,
+      baseStores: base.size,
+      supportStores: activas.size - base.size,
+      droppedAssignments: descartadas,
+    },
   };
 }
 

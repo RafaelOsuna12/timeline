@@ -45,8 +45,8 @@ nginx, y para actualizarse subiendo el archivo desde el propio navegador.
   estado y ciudad, con fecha de ingreso y antigüedad; ficha individual con sus
   tiendas y su cadena de mando; plantilla por tienda; plazas vacantes; y el
   detalle de qué cambió entre una carga y la siguiente. Para el supervisor mix
-  y el city manager solo cuentan las **tiendas activas**, que son las que
-  tienen plaza de promotor.
+  y el city manager solo cuentan las **tiendas base**; las de apoyo aparecen en
+  la ficha del promotor pero no suman al total de tiendas asignadas.
 - **Reportes para imprimir** — se eligen las regiones, los CM, los supervisores
   y hasta los promotores concretos, y se genera un documento paginado con el
   análisis de cada nivel: meta, venta, cumplimiento y cierre proyectado. Incluye

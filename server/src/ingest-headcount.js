@@ -105,7 +105,14 @@ export function buildPeople(dataset) {
     p.employment ||= a.employment;
     p.agencyId ||= a.agencyId;
     p.personId ||= a.personId;
-    p.stores.push({ storeId: a.storeId, store: a.store, role: a.role, channel: a.channel, region: a.region });
+    p.stores.push({
+      storeId: a.storeId,
+      store: a.store,
+      role: a.role,
+      channel: a.channel,
+      region: a.region,
+      employment: a.employment,
+    });
   }
 
   for (const m of dataset.middleManagement) {
@@ -136,7 +143,11 @@ export function buildPeople(dataset) {
         roles,
         role: roles[0] || 'SIN_ROL',
         source: p.sources.size > 1 ? 'AMBOS' : [...p.sources][0] || 'FF',
-        storeCount: p.stores.length,
+        // El conteo de tiendas son las base, que son las que de verdad se
+        // trabajan; las de apoyo se llevan aparte para poder mostrarlas sin
+        // inflar el numero.
+        storeCount: p.stores.filter((s) => s.employment !== 'SUPPORT').length,
+        supportCount: p.stores.filter((s) => s.employment === 'SUPPORT').length,
       };
     }),
     warnings,
@@ -294,16 +305,18 @@ export function saveHeadcount(dataset, { storedFile = null, hash = null, uploade
   const insStore = db.prepare(`
     INSERT INTO hc_stores (snapshot_id, store_id, store, store_key, channel, region, state, city,
                            city_coverage, locality, city_class, listing, tier, address, channel_store_id,
-                           coverage_time, active)
+                           coverage_time, active, floor)
     VALUES (@snapshot_id,@store_id,@store,@store_key,@channel,@region,@state,@city,
             @city_coverage,@locality,@city_class,@listing,@tier,@address,@channel_store_id,
-            @coverage_time,@active)
+            @coverage_time,@active,@floor)
   `);
   const insPerson = db.prepare(`
     INSERT INTO hc_people (snapshot_id, person_key, person_id, agency_id, name, name_key, role, roles_json,
-                           source, position, region, state, city, channel, employment, status, hire_date, store_count)
+                           source, position, region, state, city, channel, employment, status, hire_date,
+                           store_count, support_count)
     VALUES (@snapshot_id,@person_key,@person_id,@agency_id,@name,@name_key,@role,@roles_json,
-            @source,@position,@region,@state,@city,@channel,@employment,@status,@hire_date,@store_count)
+            @source,@position,@region,@state,@city,@channel,@employment,@status,@hire_date,
+            @store_count,@support_count)
   `);
   const insAssign = db.prepare(`
     INSERT INTO hc_assignments (snapshot_id, seq, store_id, person_key, role, employment, status, zone, route)
@@ -368,6 +381,7 @@ export function saveHeadcount(dataset, { storedFile = null, hash = null, uploade
         channel_store_id: s.channelStoreId || null,
         coverage_time: s.coverageTime || null,
         active: s.active ? 1 : 0,
+        floor: s.floor || null,
       });
     }
 
@@ -391,6 +405,7 @@ export function saveHeadcount(dataset, { storedFile = null, hash = null, uploade
         status: p.status,
         hire_date: p.hireDate,
         store_count: p.storeCount,
+        support_count: p.supportCount,
       });
     }
 

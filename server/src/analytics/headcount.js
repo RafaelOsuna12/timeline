@@ -77,6 +77,8 @@ export function loadHeadcount(snapshotId) {
     // vacante. Las demas siguen en el universo del archivo pero no cuentan
     // como tienda asignada para el supervisor mix ni para el city manager.
     active: s.active !== 0,
+    // BASE cuenta como tienda a trabajar; SUPPORT es de apoyo.
+    floor: s.floor || null,
     staff: [],
   }));
   const storeById = new Map(stores.map((s) => [s.storeId, s]));
@@ -99,6 +101,7 @@ export function loadHeadcount(snapshotId) {
     status: p.status,
     hireDate: p.hire_date,
     storeCount: p.store_count,
+    supportCount: p.support_count || 0,
     stores: [],
   }));
   const peopleByKey = new Map(people.map((p) => [p.key, p]));
@@ -227,6 +230,7 @@ const presentable = (p) => ({
   hireDate: p.hireDate,
   tenureMonths: tenureMonths(p.hireDate),
   storeCount: p.storeCount,
+  supportCount: p.supportCount,
   stores: p.stores.map((s) => s.store),
   channels: [...new Set(p.stores.map((s) => s.channel).filter(Boolean))],
 });
@@ -236,6 +240,7 @@ const presentable = (p) => ({
 /** Directorio: una fila por persona, con los totales del corte elegido. */
 export function buildDirectory(snapshot, filters = {}) {
   const rows = filterPeople(snapshot.people, filters);
+  const floorOf = new Map(snapshot.stores.map((s) => [s.storeId, s.floor]));
   const list = rows.map(presentable).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es'));
 
   const tenures = list.map((p) => p.tenureMonths).filter((v) => v !== null).sort((a, b) => a - b);
@@ -249,6 +254,7 @@ export function buildDirectory(snapshot, filters = {}) {
     const e = byRole.get(p.role);
     e.people += 1;
     e.stores += p.storeCount;
+    e.support = (e.support || 0) + (p.supportCount || 0);
   }
   for (const v of vacancies) {
     if (!byRole.has(v.role)) byRole.set(v.role, { role: v.role, label: roleLabel(v.role), people: 0, stores: 0 });
@@ -278,7 +284,12 @@ export function buildDirectory(snapshot, filters = {}) {
     people: list,
     totals: {
       people: list.length,
-      stores: new Set(rows.flatMap((p) => p.stores.map((s) => s.storeId))).size,
+      stores: new Set(
+        rows.flatMap((p) => p.stores.map((s) => s.storeId)).filter((id) => floorOf.get(id) === 'BASE')
+      ).size,
+      supportStores: new Set(
+        rows.flatMap((p) => p.stores.map((s) => s.storeId)).filter((id) => floorOf.get(id) === 'SUPPORT')
+      ).size,
       vacancies: vacancies.length,
       withHireDate: list.filter((p) => p.hireDate).length,
       withoutHireDate: list.filter((p) => !p.hireDate).length,
@@ -316,6 +327,7 @@ export function buildPersonDetail(snapshot, personKey) {
       state: s.state,
       city: s.city,
       active: s.active,
+      floor: s.floor,
       role: person.stores.find((x) => x.storeId === s.storeId)?.role || null,
       employment: person.stores.find((x) => x.storeId === s.storeId)?.employment || null,
       // Quien mas atiende esa tienda, sin repetir a la persona de la ficha.
@@ -378,6 +390,7 @@ export function buildStoreRoster(snapshot, filters = {}) {
         city: s.city,
         listing: s.listing,
         active: s.active,
+        floor: s.floor,
         staffed: s.staff.filter((a) => !a.vacancy).length,
         vacancies: s.staff.filter((a) => a.vacancy).length,
         staff: s.staff.map((a) => ({
@@ -393,6 +406,8 @@ export function buildStoreRoster(snapshot, filters = {}) {
     totals: {
       stores: rows.length,
       active: rows.filter((s) => s.active).length,
+      base: rows.filter((s) => s.floor === 'BASE').length,
+      support: rows.filter((s) => s.floor === 'SUPPORT').length,
       withStaff: rows.filter((s) => s.staff.some((a) => !a.vacancy)).length,
       withVacancy: rows.filter((s) => s.staff.some((a) => a.vacancy)).length,
       empty: rows.filter((s) => !s.staff.length).length,

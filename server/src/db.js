@@ -177,6 +177,7 @@ CREATE TABLE IF NOT EXISTS hc_stores (
   channel_store_id TEXT,
   coverage_time    TEXT,
   active           INTEGER NOT NULL DEFAULT 1,
+  floor            TEXT,
   PRIMARY KEY (snapshot_id, store_id)
 );
 CREATE INDEX IF NOT EXISTS idx_hc_stores_region ON hc_stores(snapshot_id, region, channel);
@@ -200,6 +201,7 @@ CREATE TABLE IF NOT EXISTS hc_people (
   status       TEXT,
   hire_date    TEXT,
   store_count  INTEGER NOT NULL DEFAULT 0,
+  support_count INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (snapshot_id, person_key)
 );
 CREATE INDEX IF NOT EXISTS idx_hc_people_region ON hc_people(snapshot_id, region, role);
@@ -264,6 +266,11 @@ function addColumnIfMissing(table, column, definition) {
 // esta columna se quedan con el valor por omision hasta que se vuelva a subir
 // el archivo, que es cuando se puede saber cuales lo son.
 addColumnIfMissing('hc_stores', 'active', 'INTEGER NOT NULL DEFAULT 1');
+
+// Tipo de plaza de la tienda: BASE cuenta como tienda a trabajar, SUPPORT es
+// una tienda de apoyo donde el promotor tambien puede vender.
+addColumnIfMissing('hc_stores', 'floor', 'TEXT');
+addColumnIfMissing('hc_people', 'support_count', 'INTEGER NOT NULL DEFAULT 0');
 
 export function audit(actor, action, detail) {
   db.prepare('INSERT INTO audit_log (at, actor, action, detail) VALUES (?,?,?,?)').run(

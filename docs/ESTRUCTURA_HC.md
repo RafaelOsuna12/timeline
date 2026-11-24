@@ -63,18 +63,28 @@ vacíos se leen igual y entrarán solos el día que los llenen.
 | Field rep | sí — 110 plazas, 6 personas |
 | Double promoter, Lobo promoter, Supervisor, Merchandiser, Temporal promoter, ATT PRM promoter | la estructura existe, sin datos |
 
-## Tiendas activas
+## Tiendas base y tiendas de apoyo
 
-Una tienda está **activa** cuando tiene plaza de promotor en la columna
-`Promoter name`, ya sea con titular o marcada como vacante. Las que vienen en
-cero no cuentan: en el archivo de noviembre de 2026 son **191 activas de 1,079**
-(888 sin plaza de promotor, de las cuales 276 están marcadas como `New Added`).
+Una tienda está **activa** cuando tiene plaza de promotor, con titular o
+vacante. De las activas, el tipo de plaza del promotor decide cómo cuenta:
 
-Esa distinción importa porque el libro arrastra al **supervisor mix** y al
-**city manager** en todas las tiendas del universo. Contarlas les atribuiría
-tiendas que no atienden: un city manager pasaba de 73 a 35 plazas reales al
-aplicar la regla. Por eso sus asignaciones solo se registran en tiendas
-activas.
+| Tipo | Qué es | Cuenta para supervisor mix y CM |
+|---|---|---|
+| **BASE** | La tienda que el promotor tiene a cargo | **Sí** |
+| **SUPPORT** | Tienda de apoyo donde además puede vender | No |
+
+En el archivo de noviembre de 2026: **1,079 tiendas en total, 191 con plaza de
+promotor, de las cuales 168 son base y 23 de apoyo**. Las 888 restantes no
+tienen plaza de promotor (276 están marcadas como `New Added`).
+
+El número real de tiendas a trabajar es **168**. El libro arrastra al
+supervisor mix y al city manager en todas las tiendas del universo, así que
+contarlas les atribuiría tiendas que no atienden: un city manager pasaba de 73
+plazas a 25 reales al aplicar las dos reglas.
+
+Las tiendas de apoyo **siguen apareciendo en la ficha del promotor**, con su
+etiqueta, porque son donde también vende; lo que no hacen es sumar al total de
+tiendas asignadas de nadie.
 
 La regla **no aplica** a otros roles:
 
@@ -82,10 +92,7 @@ La regla **no aplica** a otros roles:
 |---|---|
 | Field rep | Cubre justamente las tiendas sin promotor: con la regla quedaría en **cero** |
 | Trainer | No se pidió; hoy cuenta sus 390 plazas completas |
-| Fixed promoter | Es el rol que define si la tienda está activa |
-
-En la vista de tiendas se muestran por omisión solo las activas, con un botón
-para ver el universo completo.
+| Fixed promoter | Es el rol que define el tipo de la tienda |
 
 ## Campos que se leen pero no se muestran
 

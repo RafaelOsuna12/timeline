@@ -41,7 +41,17 @@ function Detail({ data }) {
     <div className="stack">
       <section className="kpis">
         <Kpi label="Rol" value={p.roleLabel} compact meta={p.roles.length > 1 ? `Tambien: ${p.roles.slice(1).join(', ')}` : p.employment || undefined} />
-        <Kpi label="Tiendas a cargo" value={n(p.storeCount)} meta={p.channels.length ? p.channels.join(' · ') : 'Sin tienda asignada'} />
+        <Kpi
+          label="Tiendas a cargo"
+          value={n(p.storeCount)}
+          meta={
+            p.supportCount
+              ? `Mas ${n(p.supportCount)} de apoyo, donde tambien vende`
+              : p.channels.length
+                ? p.channels.join(' · ')
+                : 'Sin tienda asignada'
+          }
+        />
         <Kpi
           label="Antiguedad"
           value={tenureLabel(p.tenureMonths)}
@@ -113,7 +123,11 @@ function Detail({ data }) {
               { key: 'store', label: 'Tienda', cellClass: 'name' },
               { key: 'channel', label: 'Canal', cellClass: 'dim' },
               { key: 'city', label: 'Ciudad', cellClass: 'dim' },
-              { key: 'employment', label: 'Plaza', cellClass: 'dim', render: (s) => s.employment || '—' },
+              {
+                key: 'floor',
+                label: 'Plaza',
+                render: (s) => (s.floor === 'SUPPORT' ? <span className="tag tag--soft">apoyo</span> : s.floor === 'BASE' ? 'Base' : '—'),
+              },
               {
                 key: 'team',
                 label: 'Equipo de la tienda',
