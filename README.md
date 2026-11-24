@@ -40,6 +40,11 @@ nginx, y para actualizarse subiendo el archivo desde el propio navegador.
   día, distinguiendo la ausencia del día en piso sin venta.
 - **Avance entre cargas** — cuánto se movió cada equipo entre dos
   actualizaciones del archivo.
+- **Datos del personal** — plantilla completa de campo y mandos medios a partir
+  del archivo `HC_R123.xlsb`: directorio filtrable por región, rol, canal,
+  estado y ciudad, con fecha de ingreso y antigüedad; ficha individual con sus
+  tiendas y su cadena de mando; plantilla por tienda; plazas vacantes; y el
+  detalle de qué cambió entre una carga y la siguiente.
 - **Reportes para imprimir** — se eligen las regiones, los CM, los supervisores
   y hasta los promotores concretos, y se genera un documento paginado con el
   análisis de cada nivel: meta, venta, cumplimiento y cierre proyectado. Incluye
@@ -61,7 +66,8 @@ nginx, y para actualizarse subiendo el archivo desde el propio navegador.
   actividad.
 
 Cómo se calcula cada número: [`docs/METRICAS.md`](docs/METRICAS.md).
-Qué se lee de cada hoja del Excel: [`docs/ESTRUCTURA_EXCEL.md`](docs/ESTRUCTURA_EXCEL.md).
+Qué se lee de cada hoja del Excel de ventas: [`docs/ESTRUCTURA_EXCEL.md`](docs/ESTRUCTURA_EXCEL.md).
+Qué se lee del archivo de plantilla: [`docs/ESTRUCTURA_HC.md`](docs/ESTRUCTURA_HC.md).
 
 ---
 
@@ -69,7 +75,9 @@ Qué se lee de cada hoja del Excel: [`docs/ESTRUCTURA_EXCEL.md`](docs/ESTRUCTURA
 
 Requisitos: Ubuntu o Debian con acceso root, el dominio
 `estadisticas.honorlab.dev` apuntando con un registro **A** a la IP pública del
-servidor, y los puertos 80 y 443 abiertos.
+servidor, y los puertos 80 y 443 abiertos. El servidor debe poder alcanzar
+`cdn.sheetjs.com`, de donde se instala el lector del archivo de plantilla
+(`.xlsb`); la versión está fijada con su hash en `package-lock.json`.
 
 ```bash
 # 1. Traer el código (la rama con el sistema)
@@ -168,6 +176,13 @@ cd server
 npm run ingest -- /ruta/al/R123_DailySO_Models_20260901.xlsx
 ```
 
+Cargar el archivo de plantilla desde la terminal:
+
+```bash
+cd server
+npm run ingest-hc -- /ruta/al/HC_R123.xlsb
+```
+
 Crear usuarios desde la terminal:
 
 ```bash
@@ -181,7 +196,7 @@ node src/scripts/create-user.js jperez 'contrasena-larga' editor 'Juan Perez'
 
 ```
 server/                     API REST + motor de análisis (Node 20, Express)
-  src/parser/               lectura del Excel (detección de estructura)
+  src/parser/               lectura de los Excel (detección de estructura)
   src/analytics/            métricas, proyecciones y vistas del tablero
   src/routes/               endpoints de datos, carga y sesión
   src/db.js                 esquema SQLite
@@ -233,6 +248,12 @@ filtros por query string: `region`, `cm`, `supervisor`, `channel`, `store`,
 | `GET` | `/api/stores` | Desempeño por tienda |
 | `GET` | `/api/attendance` | Asistencia y días en cero |
 | `GET` | `/api/comparison` | Avance contra la carga anterior |
+| `GET` | `/api/hc/directory` | Directorio de personal (filtros: `region`, `role`, `channel`, `state`, `city`, `search`) |
+| `GET` | `/api/hc/people/:key` | Ficha de una persona con sus tiendas y su cadena de mando |
+| `GET` | `/api/hc/stores` | Plantilla por tienda |
+| `GET` | `/api/hc/changes` | Movimientos contra la carga anterior |
+| `GET` | `/api/hc/export/:dataset.csv` | Exportación (`personal`, `tiendas`, `vacantes`, `cambios`) |
+| `POST` | `/api/hc/uploads` | Subir el archivo de plantilla (roles admin y editor) |
 | `GET` | `/api/report` | Documento para imprimir (`regions`, `cms`, `supervisors`, `promoters`, `sections`, `withDaily`, `minDaily`) |
 | `GET` | `/api/export/:dataset.csv` | Exportación (`promotores`, `supervisores`, `tiendas`, `diario`, `bajo_rendimiento`) |
 | `POST` | `/api/uploads` | Subir un archivo (roles admin y editor) |

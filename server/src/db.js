@@ -139,6 +139,99 @@ CREATE TABLE IF NOT EXISTS model_variants (
   PRIMARY KEY (snapshot_id, sheet, dimension, channel, variant)
 );
 
+/* ------------------------------------------------------------------ */
+/*  Plantilla (HC): personas, tiendas y cambios entre cargas           */
+/*                                                                     */
+/*  Vive aparte del snapshot de ventas porque se actualiza con otro    */
+/*  archivo y a otro ritmo (dos veces por semana contra diario), y     */
+/*  cubre mas cadenas. Se cruzaran por person_id cuando haga falta.  */
+/* ------------------------------------------------------------------ */
+
+CREATE TABLE IF NOT EXISTS hc_snapshots (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  source_name  TEXT,
+  stored_file  TEXT,
+  file_hash    TEXT,
+  uploaded_by  TEXT,
+  created_at   TEXT NOT NULL,
+  status       TEXT NOT NULL DEFAULT 'ready',
+  meta_json    TEXT NOT NULL DEFAULT '{}'
+);
+CREATE INDEX IF NOT EXISTS idx_hc_snapshots_at ON hc_snapshots(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS hc_stores (
+  snapshot_id      INTEGER NOT NULL REFERENCES hc_snapshots(id) ON DELETE CASCADE,
+  store_id         TEXT NOT NULL,
+  store            TEXT NOT NULL,
+  store_key        TEXT,
+  channel          TEXT,
+  region           TEXT,
+  state            TEXT,
+  city             TEXT,
+  city_coverage    TEXT,
+  locality         TEXT,
+  city_class       TEXT,
+  listing          TEXT,
+  tier             TEXT,
+  address          TEXT,
+  channel_store_id TEXT,
+  coverage_time    TEXT,
+  PRIMARY KEY (snapshot_id, store_id)
+);
+CREATE INDEX IF NOT EXISTS idx_hc_stores_region ON hc_stores(snapshot_id, region, channel);
+
+CREATE TABLE IF NOT EXISTS hc_people (
+  snapshot_id  INTEGER NOT NULL REFERENCES hc_snapshots(id) ON DELETE CASCADE,
+  person_key   TEXT NOT NULL,
+  person_id    TEXT,
+  agency_id    TEXT,
+  name         TEXT NOT NULL,
+  name_key     TEXT NOT NULL,
+  role         TEXT NOT NULL,
+  roles_json   TEXT NOT NULL DEFAULT '[]',
+  source       TEXT NOT NULL,
+  position     TEXT,
+  region       TEXT,
+  state        TEXT,
+  city         TEXT,
+  channel      TEXT,
+  employment   TEXT,
+  status       TEXT,
+  hire_date    TEXT,
+  store_count  INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (snapshot_id, person_key)
+);
+CREATE INDEX IF NOT EXISTS idx_hc_people_region ON hc_people(snapshot_id, region, role);
+
+CREATE TABLE IF NOT EXISTS hc_assignments (
+  snapshot_id  INTEGER NOT NULL REFERENCES hc_snapshots(id) ON DELETE CASCADE,
+  seq          INTEGER NOT NULL,
+  store_id     TEXT,
+  person_key   TEXT,
+  role         TEXT NOT NULL,
+  employment   TEXT,
+  status       TEXT,
+  zone         TEXT,
+  route        TEXT,
+  PRIMARY KEY (snapshot_id, seq)
+);
+CREATE INDEX IF NOT EXISTS idx_hc_assign_person ON hc_assignments(snapshot_id, person_key);
+CREATE INDEX IF NOT EXISTS idx_hc_assign_store ON hc_assignments(snapshot_id, store_id);
+
+CREATE TABLE IF NOT EXISTS hc_changes (
+  snapshot_id  INTEGER NOT NULL REFERENCES hc_snapshots(id) ON DELETE CASCADE,
+  previous_id  INTEGER,
+  seq          INTEGER NOT NULL,
+  kind         TEXT NOT NULL,
+  person_key   TEXT,
+  name         TEXT,
+  role         TEXT,
+  region       TEXT,
+  detail_json  TEXT NOT NULL DEFAULT '{}',
+  PRIMARY KEY (snapshot_id, seq)
+);
+CREATE INDEX IF NOT EXISTS idx_hc_changes_kind ON hc_changes(snapshot_id, kind);
+
 CREATE TABLE IF NOT EXISTS audit_log (
   id      INTEGER PRIMARY KEY AUTOINCREMENT,
   at      TEXT NOT NULL,

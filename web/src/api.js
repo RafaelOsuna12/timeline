@@ -120,6 +120,21 @@ export const api = {
   comparison: (q, signal) => request(`/comparison${toQuery(q)}`, { signal }),
   report: (q, signal) => request(`/report${toQuery(q)}`, { signal }),
 
+  /**
+   * Plantilla (Datos del personal). Vive bajo su propio prefijo porque se
+   * actualiza con otro archivo y a otro ritmo que el reporte de ventas; otras
+   * secciones del sitio pueden consumir estos mismos endpoints.
+   */
+  hc: {
+    snapshots: (signal) => request('/hc/snapshots', { signal }),
+    filters: (q, signal) => request(`/hc/filters${toQuery(q)}`, { signal }),
+    directory: (q, signal) => request(`/hc/directory${toQuery(q)}`, { signal }),
+    person: (key, q, signal) => request(`/hc/people/${encodeURIComponent(key)}${toQuery(q)}`, { signal }),
+    stores: (q, signal) => request(`/hc/stores${toQuery(q)}`, { signal }),
+    changes: (q, signal) => request(`/hc/changes${toQuery(q)}`, { signal }),
+    remove: (id) => request(`/hc/${id}`, { method: 'DELETE' }),
+  },
+
   uploadHistory: () => request('/uploads'),
   uploadJob: (id) => request(`/uploads/jobs/${id}`),
   deleteSnapshot: (id) => request(`/uploads/${id}`, { method: 'DELETE' }),
@@ -132,12 +147,12 @@ export const api = {
 };
 
 /** Sube el archivo con XHR para poder reportar el avance real de la carga. */
-export function uploadFile(file, onProgress) {
+export function uploadFile(file, onProgress, endpoint = '/api/uploads') {
   return new Promise((resolve, reject) => {
     const form = new FormData();
     form.append('file', file);
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/uploads');
+    xhr.open('POST', endpoint);
     const token = session.token;
     if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     xhr.upload.onprogress = (e) => {
@@ -159,8 +174,8 @@ export function uploadFile(file, onProgress) {
 }
 
 /** Descarga un CSV respetando la sesion (no se puede usar un <a> simple). */
-export async function downloadCsv(dataset, params) {
-  const res = await request(`/export/${dataset}.csv${toQuery(params)}`, { raw: true });
+export async function downloadCsv(dataset, params, prefix = '/export') {
+  const res = await request(`${prefix}/${dataset}.csv${toQuery(params)}`, { raw: true });
   const blob = await res.blob();
   const disposition = res.headers.get('Content-Disposition') || '';
   const match = /filename="([^"]+)"/.exec(disposition);

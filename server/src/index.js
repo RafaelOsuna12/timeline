@@ -16,6 +16,7 @@ import { config } from './config.js';
 import { bootstrapAdmin } from './auth.js';
 import { api } from './routes/api.js';
 import { uploads } from './routes/uploads.js';
+import { headcount } from './routes/headcount.js';
 import { authRoutes } from './routes/auth.js';
 import { currentSnapshotId } from './analytics/snapshot.js';
 
@@ -79,6 +80,7 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/uploads', uploads);
+app.use('/api/hc', headcount);
 app.use('/api', api);
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'Recurso no encontrado.' }));
