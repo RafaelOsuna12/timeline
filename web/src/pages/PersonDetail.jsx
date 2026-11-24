@@ -113,7 +113,6 @@ function Detail({ data }) {
               { key: 'store', label: 'Tienda', cellClass: 'name' },
               { key: 'channel', label: 'Canal', cellClass: 'dim' },
               { key: 'city', label: 'Ciudad', cellClass: 'dim' },
-              { key: 'tier', label: 'Tier', cellClass: 'dim', render: (s) => s.tier || '—' },
               { key: 'employment', label: 'Plaza', cellClass: 'dim', render: (s) => s.employment || '—' },
               {
                 key: 'team',

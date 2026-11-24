@@ -325,9 +325,13 @@ function Directory({ filters, reloadKey }) {
 /* -------------------------------- tiendas -------------------------------- */
 
 function StoreRoster({ filters, reloadKey }) {
+  // El universo del archivo son 1,079 tiendas, pero solo las que tienen plaza
+  // de promotor estan operando; se arranca mostrando esas.
+  const [soloActivas, setSoloActivas] = useState(true);
+  const consulta = useMemo(() => ({ ...filters, onlyActive: soloActivas || undefined }), [filters, soloActivas]);
   const { data, error, loading, refreshing } = useQuery(
-    (signal) => api.hc.stores(filters, signal),
-    [JSON.stringify(filters), reloadKey]
+    (signal) => api.hc.stores(consulta, signal),
+    [JSON.stringify(consulta), reloadKey]
   );
   if (loading && !data) return <Spinner />;
   if (error) return <ErrorBox error={error} />;
@@ -336,7 +340,11 @@ function StoreRoster({ filters, reloadKey }) {
   return (
     <div className={`stack${refreshing ? ' is-refreshing' : ''}`}>
       <section className="kpis">
-        <Kpi label="Tiendas en el corte" value={n(data.totals.stores)} meta="Segun los filtros aplicados" />
+        <Kpi
+          label={soloActivas ? 'Tiendas activas' : 'Tiendas en el corte'}
+          value={n(data.totals.stores)}
+          meta={soloActivas ? 'Con plaza de promotor asignada' : `${n(data.totals.active)} de ellas activas`}
+        />
         <Kpi label="Con personal asignado" value={n(data.totals.withStaff)} meta={`${n(data.totals.empty)} sin nadie asignado`} />
         <Kpi
           label="Con alguna vacante"
@@ -348,11 +356,24 @@ function StoreRoster({ filters, reloadKey }) {
 
       <Card
         title={`Tiendas (${n(data.stores.length)})`}
-        hint="La plantilla completa de cada punto de venta, con el rol de cada persona."
+        hint={
+          soloActivas
+            ? 'Solo las tiendas con plaza de promotor, que son las que cuentan como asignadas para el supervisor mix y el city manager.'
+            : 'Todo el universo del archivo, incluidas las tiendas que aun no abren plaza de promotor.'
+        }
         actions={
-          <button type="button" className="btn btn--sm" onClick={() => downloadCsv('tiendas', filters, '/hc/export')}>
-            Exportar CSV
-          </button>
+          <div className="row">
+            <button
+              type="button"
+              className={`btn btn--sm${soloActivas ? ' btn--primary' : ''}`}
+              onClick={() => setSoloActivas((v) => !v)}
+            >
+              {soloActivas ? 'Solo activas' : 'Todas las tiendas'}
+            </button>
+            <button type="button" className="btn btn--sm" onClick={() => downloadCsv('tiendas', consulta, '/hc/export')}>
+              Exportar CSV
+            </button>
+          </div>
         }
       >
         <DataTable
@@ -361,7 +382,15 @@ function StoreRoster({ filters, reloadKey }) {
             { key: 'channel', label: 'Canal', cellClass: 'dim' },
             { key: 'region', label: 'Region', cellClass: 'dim' },
             { key: 'city', label: 'Ciudad', cellClass: 'dim' },
-            { key: 'tier', label: 'Tier', cellClass: 'dim', render: (s) => s.tier || '—' },
+            ...(soloActivas
+              ? []
+              : [
+                  {
+                    key: 'active',
+                    label: 'Activa',
+                    render: (s) => (s.active ? 'Si' : <span className="muted">No</span>),
+                  },
+                ]),
             {
               key: 'staff',
               label: 'Plantilla',

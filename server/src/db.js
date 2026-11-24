@@ -176,6 +176,7 @@ CREATE TABLE IF NOT EXISTS hc_stores (
   address          TEXT,
   channel_store_id TEXT,
   coverage_time    TEXT,
+  active           INTEGER NOT NULL DEFAULT 1,
   PRIMARY KEY (snapshot_id, store_id)
 );
 CREATE INDEX IF NOT EXISTS idx_hc_stores_region ON hc_stores(snapshot_id, region, channel);

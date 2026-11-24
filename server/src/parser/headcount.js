@@ -124,6 +124,22 @@ const STORE_FIELDS = [
   ['coverageTime', /^TIME FOR COVERAGE$/i],
 ];
 
+/**
+ * Roles cuya asignacion solo cuenta en tiendas activas.
+ *
+ * Una tienda esta activa cuando tiene plaza de promotor, con titular o
+ * vacante. El libro arrastra al supervisor mix y al city manager en todas las
+ * tiendas del universo, incluidas las que todavia no abren plaza de promotor
+ * (hoy 888 de 1,079), y contarlas les atribuiria tiendas que no atienden.
+ *
+ * No aplica al field rep, que cubre justamente las tiendas sin promotor —con
+ * esta regla se quedaria en cero—, ni al trainer, que no se pidio.
+ */
+const ROLES_SOLO_EN_ACTIVAS = new Set(['SUPERVISOR_MIX', 'CITY_MANAGER']);
+
+/** El rol que define si una tienda esta activa. */
+const ROL_QUE_ACTIVA = 'FIXED_PROMOTER';
+
 // Columnas de un bloque de rol que nunca son el nombre de la persona. Van
 // como lista y no como una sola alternancia porque unas se reconocen por el
 // encabezado completo y otras solo por como empieza: "Tipo de piso" trae un
@@ -307,7 +323,21 @@ export function parseFF(rows) {
     }
   }
 
-  return { stores, assignments, blocks, warnings };
+  // Una tienda esta activa si tiene plaza de promotor, ocupada o vacante.
+  const activas = new Set(assignments.filter((a) => a.role === ROL_QUE_ACTIVA).map((a) => a.storeId));
+  for (const s of stores) s.active = activas.has(s.storeId);
+
+  const antes = assignments.length;
+  const vigentes = assignments.filter((a) => !ROLES_SOLO_EN_ACTIVAS.has(a.role) || activas.has(a.storeId));
+  const descartadas = antes - vigentes.length;
+
+  return {
+    stores,
+    assignments: vigentes,
+    blocks,
+    warnings,
+    stats: { activeStores: activas.size, totalStores: stores.length, droppedAssignments: descartadas },
+  };
 }
 
 /* ----------------------------- hoja INGRESO ----------------------------- */
@@ -432,7 +462,7 @@ export function parseHeadcountBuffer(buffer, { sourceName } = {}) {
   const mm = sheetRows(wb, SHEET_MM);
 
   const warnings = [];
-  const { stores, assignments, blocks, warnings: ffWarnings } = parseFF(ff.rows);
+  const { stores, assignments, blocks, warnings: ffWarnings, stats } = parseFF(ff.rows);
   warnings.push(...ffWarnings);
 
   const hire = ingreso ? parseIngreso(ingreso.rows) : { byName: new Map(), stats: null };
@@ -446,6 +476,7 @@ export function parseHeadcountBuffer(buffer, { sourceName } = {}) {
       sourceName: sourceName || filePath.split('/').pop(),
       sheetNames: wb.SheetNames,
       roleBlocks: blocks.map((b) => ({ role: b.role, label: b.label })),
+      storeStats: stats,
       hireStats: hire.stats,
       parsedAt: new Date().toISOString(),
       warnings,

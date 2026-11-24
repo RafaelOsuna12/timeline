@@ -63,6 +63,35 @@ vacíos se leen igual y entrarán solos el día que los llenen.
 | Field rep | sí — 110 plazas, 6 personas |
 | Double promoter, Lobo promoter, Supervisor, Merchandiser, Temporal promoter, ATT PRM promoter | la estructura existe, sin datos |
 
+## Tiendas activas
+
+Una tienda está **activa** cuando tiene plaza de promotor en la columna
+`Promoter name`, ya sea con titular o marcada como vacante. Las que vienen en
+cero no cuentan: en el archivo de noviembre de 2026 son **191 activas de 1,079**
+(888 sin plaza de promotor, de las cuales 276 están marcadas como `New Added`).
+
+Esa distinción importa porque el libro arrastra al **supervisor mix** y al
+**city manager** en todas las tiendas del universo. Contarlas les atribuiría
+tiendas que no atienden: un city manager pasaba de 73 a 35 plazas reales al
+aplicar la regla. Por eso sus asignaciones solo se registran en tiendas
+activas.
+
+La regla **no aplica** a otros roles:
+
+| Rol | Por qué |
+|---|---|
+| Field rep | Cubre justamente las tiendas sin promotor: con la regla quedaría en **cero** |
+| Trainer | No se pidió; hoy cuenta sus 390 plazas completas |
+| Fixed promoter | Es el rol que define si la tienda está activa |
+
+En la vista de tiendas se muestran por omisión solo las activas, con un botón
+para ver el universo completo.
+
+## Campos que se leen pero no se muestran
+
+`Tier` se guarda en la base de datos por si más adelante hace falta, pero no
+aparece en ninguna pantalla ni en las exportaciones.
+
 ## Identidad de una persona
 
 El **ID HONOR** (`bw0134360`) es la llave, porque es mucho más estable que el

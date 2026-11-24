@@ -293,9 +293,11 @@ export function saveHeadcount(dataset, { storedFile = null, hash = null, uploade
   `);
   const insStore = db.prepare(`
     INSERT INTO hc_stores (snapshot_id, store_id, store, store_key, channel, region, state, city,
-                           city_coverage, locality, city_class, listing, tier, address, channel_store_id, coverage_time)
+                           city_coverage, locality, city_class, listing, tier, address, channel_store_id,
+                           coverage_time, active)
     VALUES (@snapshot_id,@store_id,@store,@store_key,@channel,@region,@state,@city,
-            @city_coverage,@locality,@city_class,@listing,@tier,@address,@channel_store_id,@coverage_time)
+            @city_coverage,@locality,@city_class,@listing,@tier,@address,@channel_store_id,
+            @coverage_time,@active)
   `);
   const insPerson = db.prepare(`
     INSERT INTO hc_people (snapshot_id, person_key, person_id, agency_id, name, name_key, role, roles_json,
@@ -331,6 +333,7 @@ export function saveHeadcount(dataset, { storedFile = null, hash = null, uploade
         sheetNames: dataset.meta.sheetNames || [],
         roleBlocks: dataset.meta.roleBlocks || [],
         hireStats: dataset.meta.hireStats || null,
+        storeStats: dataset.meta.storeStats || null,
         warnings: [...(dataset.meta.warnings || []), ...peopleWarnings],
         parsedAt: dataset.meta.parsedAt,
         storeCount: dataset.stores.length,
@@ -364,6 +367,7 @@ export function saveHeadcount(dataset, { storedFile = null, hash = null, uploade
         address: s.address || null,
         channel_store_id: s.channelStoreId || null,
         coverage_time: s.coverageTime || null,
+        active: s.active ? 1 : 0,
       });
     }
 

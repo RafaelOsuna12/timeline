@@ -46,6 +46,7 @@ function readFilters(req) {
     status: clean(q.status),
     source: clean(q.source),
     search: clean(q.search),
+    onlyActive: /^(1|true|yes)$/i.test(String(q.onlyActive || '')),
   };
 }
 
@@ -120,8 +121,8 @@ const EXPORTS = {
       Region: s.region,
       Estado: s.state,
       Ciudad: s.city,
-      Tier: s.tier,
       Listado: s.listing,
+      Activa: s.active ? 'SI' : 'NO',
       Cubiertas: s.staffed,
       Vacantes: s.vacancies,
       Plantilla: s.staff.map((a) => `${a.roleLabel}: ${a.vacancy ? 'VACANTE' : a.name}`).join(' | '),

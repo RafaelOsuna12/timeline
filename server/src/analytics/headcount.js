@@ -71,10 +71,13 @@ export function loadHeadcount(snapshotId) {
     locality: s.locality,
     cityClass: s.city_class,
     listing: s.listing,
-    tier: s.tier,
     address: s.address,
     channelStoreId: s.channel_store_id,
     coverageTime: s.coverage_time,
+    // Una tienda esta activa cuando tiene plaza de promotor, con titular o
+    // vacante. Las demas siguen en el universo del archivo pero no cuentan
+    // como tienda asignada para el supervisor mix ni para el city manager.
+    active: s.active !== 0,
     staff: [],
   }));
   const storeById = new Map(stores.map((s) => [s.storeId, s]));
@@ -313,7 +316,7 @@ export function buildPersonDetail(snapshot, personKey) {
       region: s.region,
       state: s.state,
       city: s.city,
-      tier: s.tier,
+      active: s.active,
       address: s.address,
       role: person.stores.find((x) => x.storeId === s.storeId)?.role || null,
       employment: person.stores.find((x) => x.storeId === s.storeId)?.employment || null,
@@ -351,7 +354,9 @@ export function buildStoreRoster(snapshot, filters = {}) {
     city: norm(filters.city),
     search: norm(filters.search),
   };
+  const soloActivas = filters.onlyActive === true || norm(filters.onlyActive) === 'TRUE' || filters.onlyActive === '1';
   const rows = snapshot.stores.filter((s) => {
+    if (soloActivas && !s.active) return false;
     if (want.region && norm(s.region) !== want.region) return false;
     if (want.channel && norm(s.channel) !== want.channel) return false;
     if (want.state && norm(s.state) !== want.state) return false;
@@ -373,8 +378,8 @@ export function buildStoreRoster(snapshot, filters = {}) {
         region: s.region,
         state: s.state,
         city: s.city,
-        tier: s.tier,
         listing: s.listing,
+        active: s.active,
         address: s.address,
         staffed: s.staff.filter((a) => !a.vacancy).length,
         vacancies: s.staff.filter((a) => a.vacancy).length,
@@ -390,10 +395,12 @@ export function buildStoreRoster(snapshot, filters = {}) {
       .sort((a, b) => a.store.localeCompare(b.store, 'es')),
     totals: {
       stores: rows.length,
+      active: rows.filter((s) => s.active).length,
       withStaff: rows.filter((s) => s.staff.some((a) => !a.vacancy)).length,
       withVacancy: rows.filter((s) => s.staff.some((a) => a.vacancy)).length,
       empty: rows.filter((s) => !s.staff.length).length,
     },
+    onlyActive: soloActivas,
   };
 }
 
