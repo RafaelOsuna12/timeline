@@ -26,7 +26,7 @@ const ICONS = {
 
 const NAV = [
   { group: 'Analisis', items: [
-    { to: '/', label: 'Resumen ejecutivo', icon: 'overview', end: true },
+    { to: '/', label: 'Resumen', icon: 'overview', end: true },
     { to: '/regiones', label: 'Regiones y canales', icon: 'regions' },
     { to: '/equipos', label: 'CM y supervisores', icon: 'teams' },
     { to: '/promotores', label: 'Promotores', icon: 'promoters' },

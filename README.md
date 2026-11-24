@@ -13,7 +13,7 @@ nginx, y para actualizarse subiendo el archivo desde el propio navegador.
 
 **Análisis**
 
-- **Resumen ejecutivo** — avance contra target, curva acumulada frente a la
+- **Resumen** — avance contra target, curva acumulada frente a la
   curva de objetivo, proyección de cierre con tres escenarios, sell-out diario
   con media móvil, estacionalidad por día de la semana y alertas ordenadas por
   impacto en el cierre.
@@ -225,7 +225,7 @@ filtros por query string: `region`, `cm`, `supervisor`, `channel`, `store`,
 | Método | Ruta | Descripción |
 |---|---|---|
 | `POST` | `/api/auth/login` | Iniciar sesión |
-| `GET` | `/api/overview` | Resumen ejecutivo |
+| `GET` | `/api/overview` | Resumen general |
 | `GET` | `/api/hierarchy` | Árbol región → CM → supervisor → promotor |
 | `GET` | `/api/promoters` | Tabla de promotores |
 | `GET` | `/api/promoters/:id` | Detalle de un promotor |

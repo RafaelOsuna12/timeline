@@ -1,5 +1,5 @@
 /**
- * Resumen ejecutivo: como va el mes, como va a cerrar y donde esta el problema.
+ * Resumen: como va el mes, como va a cerrar y donde esta el problema.
  */
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -22,7 +22,7 @@ export default function Overview() {
 
   return (
     <AppShell
-      title="Resumen ejecutivo"
+      title="Resumen"
       subtitle="Avance del mes y proyeccion de cierre"
       filterBar={<FilterBar />}
       actions={
