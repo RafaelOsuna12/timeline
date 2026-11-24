@@ -51,7 +51,9 @@ nginx, y para actualizarse subiendo el archivo desde el propio navegador.
   y hasta los promotores concretos, y se genera un documento paginado con el
   análisis de cada nivel: meta, venta, cumplimiento y cierre proyectado. Incluye
   el **reporte de bajo rendimiento**, que cruza el per cápita diario (2 piezas
-  por día trabajado por omisión) con el mínimo del 60 % de cierre. En su segundo
+  por día trabajado por omisión) con el mínimo del 60 % de cierre. Ambos modos
+  se imprimen en **hoja horizontal**: las tablas son anchas y en vertical se
+  perdían las últimas columnas. En su segundo
   modo arma el **historial por persona**: varios meses de un promotor o
   supervisor en una hoja horizontal, con meta, venta, cumplimiento, faltante,
   promedio mensual y tendencia.

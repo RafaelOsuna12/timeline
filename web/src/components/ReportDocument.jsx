@@ -220,14 +220,20 @@ function SummarySection({ data, closed }) {
         </tbody>
       </table>
 
-      <h3 className="report__h3">Avance acumulado contra la curva de meta</h3>
-      <div className="report__chart">
-        <AdvanceCurve daily={daily} target={m.target} cutoffDay={ctx.cutoffDay} height={230} />
-      </div>
-
-      <h3 className="report__h3">Venta por dia</h3>
-      <div className="report__chart">
-        <DailyBars daily={data.daily} height={190} />
+      {/* Lado a lado: la hoja es apaisada y sobra ancho, no alto. */}
+      <div className="report__charts">
+        <div>
+          <h3 className="report__h3">Avance acumulado contra la curva de meta</h3>
+          <div className="report__chart">
+            <AdvanceCurve daily={daily} target={m.target} cutoffDay={ctx.cutoffDay} height={210} />
+          </div>
+        </div>
+        <div>
+          <h3 className="report__h3">Venta por dia</h3>
+          <div className="report__chart">
+            <DailyBars daily={data.daily} height={210} />
+          </div>
+        </div>
       </div>
 
       {data.models?.length > 0 && (
