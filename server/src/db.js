@@ -243,6 +243,28 @@ CREATE TABLE IF NOT EXISTS audit_log (
 CREATE INDEX IF NOT EXISTS idx_audit_at ON audit_log(at DESC);
 `);
 
+/* ------------------------------------------------------------------ */
+/*  Migraciones                                                         */
+/*                                                                      */
+/*  `CREATE TABLE IF NOT EXISTS` no toca una tabla que ya existe, asi   */
+/*  que una columna nueva no llega a las instalaciones ya desplegadas.  */
+/*  Aqui se agregan una por una, sin tocar los datos: la operacion es   */
+/*  idempotente y barata, asi que corre en cada arranque.               */
+/* ------------------------------------------------------------------ */
+
+function addColumnIfMissing(table, column, definition) {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!columns.length) return; // la tabla todavia no existe: la crea el esquema
+  if (columns.some((c) => c.name === column)) return;
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  console.log(`[db] migracion: ${table}.${column} agregada`);
+}
+
+// Tiendas activas: las que tienen plaza de promotor. Las cargas anteriores a
+// esta columna se quedan con el valor por omision hasta que se vuelva a subir
+// el archivo, que es cuando se puede saber cuales lo son.
+addColumnIfMissing('hc_stores', 'active', 'INTEGER NOT NULL DEFAULT 1');
+
 export function audit(actor, action, detail) {
   db.prepare('INSERT INTO audit_log (at, actor, action, detail) VALUES (?,?,?,?)').run(
     new Date().toISOString(),

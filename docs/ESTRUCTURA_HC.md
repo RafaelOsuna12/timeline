@@ -92,6 +92,15 @@ para ver el universo completo.
 `Tier` se guarda en la base de datos por si más adelante hace falta, pero no
 aparece en ninguna pantalla ni en las exportaciones.
 
+## Cambios de esquema
+
+`CREATE TABLE IF NOT EXISTS` no toca una tabla que ya existe, así que una
+columna nueva no llega sola a una instalación ya desplegada. `server/src/db.js`
+agrega las columnas faltantes al arrancar, una por una y sin tocar los datos.
+
+Una carga anterior a una columna nueva se queda con el valor por omisión hasta
+que se vuelva a subir el archivo, que es cuando se puede calcular de verdad.
+
 ## Identidad de una persona
 
 El **ID HONOR** (`bw0134360`) es la llave, porque es mucho más estable que el
