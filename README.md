@@ -51,7 +51,10 @@ nginx, y para actualizarse subiendo el archivo desde el propio navegador.
   y hasta los promotores concretos, y se genera un documento paginado con el
   análisis de cada nivel: meta, venta, cumplimiento y cierre proyectado. Incluye
   el **reporte de bajo rendimiento**, que cruza el per cápita diario (2 piezas
-  por día trabajado por omisión) con el mínimo del 60 % de cierre.
+  por día trabajado por omisión) con el mínimo del 60 % de cierre. En su segundo
+  modo arma el **historial por persona**: varios meses de un promotor o
+  supervisor en una hoja horizontal, con meta, venta, cumplimiento, faltante,
+  promedio mensual y tendencia.
 
 **Operación**
 
@@ -250,6 +253,8 @@ filtros por query string: `region`, `cm`, `supervisor`, `channel`, `store`,
 | `GET` | `/api/stores` | Desempeño por tienda |
 | `GET` | `/api/attendance` | Asistencia y días en cero |
 | `GET` | `/api/comparison` | Avance contra la carga anterior |
+| `GET` | `/api/history/options` | Meses disponibles y personas que los habitan |
+| `GET` | `/api/history` | Historial de varios meses (`periods`, `promoters`, `supervisors`) |
 | `GET` | `/api/hc/directory` | Directorio de personal (filtros: `region`, `role`, `channel`, `state`, `city`, `search`) |
 | `GET` | `/api/hc/people/:key` | Ficha de una persona con sus tiendas y su cadena de mando |
 | `GET` | `/api/hc/stores` | Plantilla por tienda |

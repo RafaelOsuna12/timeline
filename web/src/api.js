@@ -119,6 +119,8 @@ export const api = {
   attendance: (q, signal) => request(`/attendance${toQuery(q)}`, { signal }),
   comparison: (q, signal) => request(`/comparison${toQuery(q)}`, { signal }),
   report: (q, signal) => request(`/report${toQuery(q)}`, { signal }),
+  historyOptions: (q, signal) => request(`/history/options${toQuery(q)}`, { signal }),
+  history: (q, signal) => request(`/history${toQuery(q)}`, { signal }),
 
   /**
    * Plantilla (Datos del personal). Vive bajo su propio prefijo porque se

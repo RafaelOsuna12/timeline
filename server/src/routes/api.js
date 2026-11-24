@@ -28,6 +28,7 @@ import {
   buildStores,
 } from '../analytics/views.js';
 import { DEFAULT_MIN_DAILY, SECTIONS, buildReport } from '../analytics/report.js';
+import { buildHistory, listHistoryPeople, listPeriods } from '../analytics/history.js';
 import { toCsv } from '../utils/csv.js';
 
 export const api = express.Router();
@@ -145,6 +146,42 @@ api.get('/promoters', view((snap, filters) => buildPromoters(snap, filters)));
 api.get('/models', view((snap, filters) => buildModels(snap, filters)));
 api.get('/stores', view((snap, filters) => buildStores(snap, filters)));
 api.get('/attendance', view((snap, filters) => buildAttendance(snap, filters)));
+
+/**
+ * Historial por persona a traves de varios meses.
+ *
+ * `options` trae los meses y el catalogo de personas que los habitan; la ruta
+ * principal arma el documento. Van aparte del reporte del mes porque el
+ * alcance es otro: ahi se elige un corte y aqui una linea de tiempo.
+ */
+api.get('/history/options', (req, res) => {
+  const lista = (v) =>
+    String(v ?? '')
+      .split(',')
+      .map((x) => x.trim())
+      .filter(Boolean);
+  res.json(listHistoryPeople(lista(req.query.periods)));
+});
+
+api.get('/history/periods', (req, res) => {
+  res.json({ periods: listPeriods() });
+});
+
+api.get('/history', (req, res) => {
+  const lista = (v) =>
+    String(v ?? '')
+      .split(',')
+      .map((x) => x.trim())
+      .filter(Boolean);
+  const periods = lista(req.query.periods);
+  const promoters = lista(req.query.promoters);
+  const supervisors = lista(req.query.supervisors);
+  if (!periods.length) return res.status(400).json({ error: 'Elige al menos un mes para el historial.' });
+  if (!promoters.length && !supervisors.length) {
+    return res.status(400).json({ error: 'Elige al menos un promotor o supervisor.' });
+  }
+  return res.json(buildHistory({ periods, promoters, supervisors }));
+});
 
 /** Documento completo para impresion, con el alcance y el detalle pedidos. */
 api.get('/report', (req, res) => {

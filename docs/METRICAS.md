@@ -243,6 +243,42 @@ mensual solo de los modelos foco con seguimiento, que suma menos que la venta
 total. Cuando hay diferencia el reporte dice cuántas piezas quedaron sin
 desglose.
 
+### Historial por persona
+
+El segundo modo de la sección arma, para cada promotor o supervisor elegido,
+**una hoja horizontal con varios meses**. Responde cómo evolucionó alguien, que
+es lo que el reporte de un mes no puede decir.
+
+De cada mes seleccionado se toma la carga de **corte más avanzado**, que es la
+que más se acerca al cierre. Por mes se muestran meta, piezas vendidas,
+cumplimiento, cuántas faltaron, días trabajados, piezas por día y la variación
+en puntos contra el mes anterior **con registro** —comparar contra un mes en el
+que la persona no estaba no dice nada—. Para un supervisor se añade cuántos
+promotores tenía ese mes, que es lo que explica los saltos de meta.
+
+Los totales del periodo suman meta y venta de los meses con registro, y el
+**promedio mensual** se reparte entre esos meses y no entre los seleccionados:
+incluir un mes en el que la persona no estaba hundiría el promedio sin motivo.
+
+Dos avisos van en la propia hoja:
+
+- **Mes sin registro**: la persona no aparece en el archivo de ese mes. Se dice
+  así y no como un cero, porque no es lo mismo no haber estado que no haber
+  vendido.
+- **Mes incompleto**: el archivo más reciente de ese mes no llega al cierre. Se
+  marca con su día de corte y viene **desmarcado por omisión** en el selector,
+  porque comparar medio mes contra meses cerrados se lee como una caída de
+  ventas que no existe.
+
+El enlace entre meses es el **nombre**: la llave interna de un promotor incluye
+su tienda, así que cambiar de tienda partiría su historia en dos. La fecha de
+ingreso sale de Datos del personal y solo existe para promotores; la hoja
+`INGRESO` no incluye a los supervisores.
+
+Las piezas y los porcentajes van en dos gráficos separados a propósito: son dos
+escalas distintas y juntarlas en un eje doble es la forma más común de hacer
+ilegible una comparación.
+
 ### Reporte de bajo rendimiento
 
 Cruza dos condiciones que **no** son equivalentes, y por eso va en tres bloques:

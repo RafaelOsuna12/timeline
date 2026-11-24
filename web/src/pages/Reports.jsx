@@ -12,6 +12,7 @@ import AppShell from '../components/AppShell.jsx';
 import { Card, Empty, ErrorBox, Spinner } from '../components/ui.jsx';
 import { n, periodLabel } from '../utils/format.js';
 import ReportDocument from '../components/ReportDocument.jsx';
+import HistoryDocument from '../components/HistoryDocument.jsx';
 
 const SECTIONS = [
   { key: 'resumen', label: 'Resumen del alcance', hint: 'Meta, venta, cumplimiento y proyeccion del conjunto elegido.' },
@@ -24,7 +25,39 @@ const SECTIONS = [
 
 const DEFAULT_SECTIONS = ['resumen', 'regiones', 'cms', 'supervisores', 'bajo_rendimiento'];
 
+const MODOS = [
+  { key: 'mes', label: 'Reporte del mes', hint: 'El corte de un mes, por region, CM, supervisor o promotor.' },
+  { key: 'historial', label: 'Historial por persona', hint: 'Varios meses de un promotor o supervisor, una hoja horizontal por persona.' },
+];
+
 export default function Reports() {
+  const [modo, setModo] = useState('mes');
+  if (modo === 'historial') return <HistoryReport modo={modo} onModo={setModo} />;
+  return <MonthlyReport modo={modo} onModo={setModo} />;
+}
+
+/** Interruptor entre los dos reportes; va arriba de todo en ambos. */
+function ModeSwitch({ modo, onModo }) {
+  return (
+    <div className="no-print" style={{ marginBottom: 16 }}>
+      <div className="chip-row" style={{ paddingBottom: 6 }}>
+        {MODOS.map((m) => (
+          <button
+            key={m.key}
+            type="button"
+            className={`btn btn--sm${modo === m.key ? ' btn--primary' : ''}`}
+            onClick={() => onModo(m.key)}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+      <p className="muted small" style={{ margin: 0 }}>{MODOS.find((m) => m.key === modo)?.hint}</p>
+    </div>
+  );
+}
+
+function MonthlyReport({ modo, onModo }) {
   const { filters, setFilter, snapshots, hasData, activeSnapshot } = useData();
 
   const [regions, setRegions] = useState([]);
@@ -126,6 +159,8 @@ export default function Reports() {
         )
       }
     >
+      <ModeSwitch modo={modo} onModo={onModo} />
+
       {!hasData && <Empty>Aun no hay informacion cargada.</Empty>}
 
       {hasData && (
@@ -339,5 +374,147 @@ function Picker({ label, options, value, onChange, allLabel, labels, searchable 
         {!shown.length && <div className="muted small" style={{ padding: '6px 2px' }}>Sin opciones.</div>}
       </div>
     </div>
+  );
+}
+
+/* --------------------------- historial por persona --------------------------- */
+
+/**
+ * Armado del historial: que meses y que personas.
+ *
+ * Los meses incompletos vienen desmarcados porque su venta no es comparable
+ * con la de un mes cerrado; se pueden incluir, y entonces la hoja los señala.
+ */
+function HistoryReport({ modo, onModo }) {
+  const [periods, setPeriods] = useState(null); // null = aun sin decidir, se llena al cargar
+  const [promoters, setPromoters] = useState([]);
+  const [supervisors, setSupervisors] = useState([]);
+  const [request, setRequest] = useState(null);
+
+  const { data: options, error: optionsError, loading: loadingOptions } = useQuery(
+    (signal) => api.historyOptions({}, signal),
+    []
+  );
+
+  // Al llegar el catalogo se preseleccionan los meses completos.
+  useEffect(() => {
+    if (!options || periods !== null) return;
+    setPeriods(options.periods.filter((p) => p.complete).map((p) => p.periodKey));
+  }, [options, periods]);
+
+  const elegidos = periods || [];
+  const query = useMemo(
+    () => ({
+      periods: elegidos.join(',') || undefined,
+      promoters: promoters.join(',') || undefined,
+      supervisors: supervisors.join(',') || undefined,
+    }),
+    [elegidos, promoters, supervisors]
+  );
+
+  const { data, error, loading } = useQuery((signal) => api.history(request, signal), [JSON.stringify(request)], {
+    skip: !request,
+  });
+
+  const total = promoters.length + supervisors.length;
+  const puede = elegidos.length > 0 && total > 0;
+
+  return (
+    <AppShell
+      title="Reportes para imprimir"
+      subtitle="Historial de varios meses por promotor o supervisor"
+      actions={
+        data && (
+          <div className="row no-print">
+            <button type="button" className="btn btn--sm btn--primary" onClick={() => window.print()}>
+              Imprimir o guardar PDF
+            </button>
+          </div>
+        )
+      }
+    >
+      <ModeSwitch modo={modo} onModo={onModo} />
+      <ErrorBox error={optionsError} />
+      {loadingOptions && !options && <Spinner />}
+
+      {options && (
+        <div className="stack no-print">
+          <Card
+            title="1. Meses"
+            hint="Los meses incompletos vienen desmarcados: su archivo no llega al cierre y compararlos con un mes cerrado se leeria como una caida de ventas."
+          >
+            <div className="chip-row" style={{ paddingBottom: 0 }}>
+              {options.periods.map((p) => {
+                const activo = elegidos.includes(p.periodKey);
+                return (
+                  <button
+                    key={p.periodKey}
+                    type="button"
+                    className={`btn btn--sm${activo ? ' btn--primary' : ''}`}
+                    onClick={() =>
+                      setPeriods((prev) =>
+                        (prev || []).includes(p.periodKey)
+                          ? prev.filter((k) => k !== p.periodKey)
+                          : [...(prev || []), p.periodKey].sort()
+                      )
+                    }
+                  >
+                    {p.label}
+                    {!p.complete && <span className="tag tag--soft">al dia {p.cutoffDay}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </Card>
+
+          <Card title="2. Personas" hint="Una hoja horizontal por cada persona elegida. Los supervisores salen primero.">
+            <div className="picker-grid">
+              <Picker
+                label="Supervisores"
+                options={options.supervisors.map((s) => s.key)}
+                labels={Object.fromEntries(
+                  options.supervisors.map((s) => [s.key, `${s.name} · ${s.region || 'sin region'} · ${s.months} meses`])
+                )}
+                value={supervisors}
+                onChange={setSupervisors}
+                allLabel="Ninguno"
+                searchable
+              />
+              <Picker
+                label="Promotores"
+                options={options.promoters.map((p) => p.key)}
+                labels={Object.fromEntries(
+                  options.promoters.map((p) => [p.key, `${p.name} · ${p.store || ''} · ${p.months} meses`])
+                )}
+                value={promoters}
+                onChange={setPromoters}
+                allLabel="Ninguno"
+                searchable
+              />
+            </div>
+          </Card>
+
+          <div className="row">
+            <button type="button" className="btn btn--primary" onClick={() => setRequest(query)} disabled={!puede}>
+              {data ? 'Actualizar historial' : 'Generar historial'}
+            </button>
+            <span className="muted small">
+              {puede
+                ? `${n(total)} ${total === 1 ? 'hoja' : 'hojas'} sobre ${n(elegidos.length)} ${
+                    elegidos.length === 1 ? 'mes' : 'meses'
+                  }.`
+                : 'Elige al menos un mes y una persona.'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      <ErrorBox error={error} />
+      {loading && <Spinner label="Armando el historial…" />}
+      {data && data.people.length === 0 && (
+        <Empty>Las personas elegidas no tienen registro en los meses seleccionados.</Empty>
+      )}
+      {data && data.people.length > 0 && <HistoryDocument data={data} />}
+    </AppShell>
   );
 }

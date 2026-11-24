@@ -16,6 +16,90 @@ import { BarTooltip, LineTooltip, Legend, axisProps, gridProps, truncateTick } f
 import { d1, n, pct, sequentialStep } from '../../utils/format.js';
 
 /**
+ * Venta contra meta, mes a mes. Una sola escala: piezas.
+ *
+ * La meta va en gris y la venta en color porque no son dos categorias
+ * comparables sino una referencia y un resultado, igual que la curva de target
+ * del resumen.
+ */
+export function MonthlyTargetBars({ months, height = 200 }) {
+  const data = months.map((m) => ({
+    label: m.label.replace(/ \d{4}$/, ''),
+    meta: m.present ? m.target : null,
+    venta: m.present ? m.so : null,
+  }));
+  return (
+    <>
+      <Legend
+        items={[
+          { label: 'Meta del mes', color: 'var(--axis)', square: true },
+          { label: 'Piezas vendidas', color: 'var(--series-1)', square: true },
+        ]}
+      />
+      <ResponsiveContainer width="100%" height={height}>
+        <BarChart data={data} margin={{ top: 10, right: 8, bottom: 4, left: 4 }} barGap={2}>
+          <CartesianGrid {...gridProps} />
+          <XAxis dataKey="label" {...axisProps} interval={0} />
+          <YAxis {...axisProps} width={44} tickFormatter={(v) => n(v)} />
+          <Bar dataKey="meta" name="Meta del mes" fill="var(--axis)" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+          <Bar dataKey="venta" name="Piezas vendidas" fill="var(--series-1)" radius={[4, 4, 0, 0]} isAnimationActive={false}>
+            <LabelList dataKey="venta" position="top" fontSize={10} fill="var(--text-secondary)" formatter={(v) => (v ? n(v) : '')} />
+          </Bar>
+          <BarTooltip title={(label) => label} format={(v) => `${n(v)} pzs`} />
+        </BarChart>
+      </ResponsiveContainer>
+    </>
+  );
+}
+
+/**
+ * Cumplimiento mes a mes. Escala en porcentaje, con las dos lineas que
+ * importan: el minimo requerido y la meta.
+ *
+ * Cada barra toma el color de su banda de estatus —de la paleta reservada,
+ * nunca de la categorica— y lleva su valor encima, para que el color no sea
+ * la unica forma de leerla.
+ */
+export function MonthlyAchBars({ months, height = 200 }) {
+  const data = months
+    .filter((m) => m.present && m.ach !== null)
+    .map((m) => ({ label: m.label.replace(/ \d{4}$/, ''), ach: m.ach }));
+  const max = Math.max(1.1, ...data.map((d) => d.ach * 1.15));
+  const tone = (v) =>
+    v >= 1 ? 'var(--status-good)' : v >= 0.9 ? 'var(--status-good)' : v >= 0.7 ? 'var(--status-warning)' : v >= 0.6 ? 'var(--status-serious)' : 'var(--status-critical)';
+
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={data} margin={{ top: 14, right: 8, bottom: 4, left: 4 }}>
+        <CartesianGrid {...gridProps} />
+        <XAxis dataKey="label" {...axisProps} interval={0} />
+        <YAxis {...axisProps} width={44} domain={[0, max]} tickFormatter={(v) => pct(v, 0)} />
+        <ReferenceLine
+          y={1}
+          stroke="var(--status-good)"
+          strokeWidth={1.5}
+          label={{ value: 'Meta 100%', position: 'insideTopRight', fill: 'var(--text-secondary)', fontSize: 10 }}
+        />
+        <ReferenceLine
+          y={0.6}
+          stroke="var(--status-serious)"
+          strokeWidth={1.5}
+          strokeDasharray="4 3"
+          label={{ value: 'Minimo 60%', position: 'insideBottomRight', fill: 'var(--text-secondary)', fontSize: 10 }}
+        />
+        <Bar dataKey="ach" name="Cumplimiento" radius={[4, 4, 0, 0]} isAnimationActive={false}>
+          {data.map((d) => (
+            <Cell key={d.label} fill={tone(d.ach)} />
+          ))}
+          <LabelList dataKey="ach" position="top" fontSize={10} fill="var(--text-secondary)" formatter={(v) => pct(v, 0)} />
+        </Bar>
+        <BarTooltip title={(label) => label} format={(v) => pct(v)} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+/**
  * Curva de adopcion: acumulado de cada modelo con seguimiento diario, en una
  * sola escala de piezas.
  *

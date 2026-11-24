@@ -1103,6 +1103,108 @@ table.data td.trunc {
   white-space: nowrap;
 }
 
+/* ----------------------------- historial ----------------------------- */
+
+.report--landscape {
+  /* En pantalla se muestra mas ancho para que se parezca a la hoja. */
+  max-width: none;
+}
+
+.hist__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  border-bottom: 2px solid var(--text-primary);
+  padding-bottom: 8px;
+  margin-bottom: 14px;
+}
+
+.hist__name {
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.hist__meta {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.hist__brand {
+  text-align: right;
+  color: var(--text-primary);
+  flex: none;
+}
+
+.hist__period {
+  display: block;
+  font-size: 10.5px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.hist__kpis {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.hist__table {
+  margin-bottom: 12px;
+}
+
+.hist__table .is-missing td {
+  color: var(--text-muted);
+}
+
+.hist__table .hist__total th {
+  background: var(--wash);
+  font-weight: 640;
+}
+
+.hist__flag {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--status-serious-ink);
+  font-weight: 560;
+}
+
+.hist__charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  break-inside: avoid;
+}
+
+.hist__charts .report__h3 {
+  margin-top: 0;
+}
+
+.hist__note {
+  margin-top: 10px;
+  max-width: none;
+}
+
+.hist__foot {
+  margin-top: 10px;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+
+@media screen and (max-width: 900px) {
+  .hist__kpis {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .hist__charts {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ==========================================================================
    Reportes para imprimir
    --------------------------------------------------------------------------
@@ -1428,6 +1530,22 @@ table.data td.trunc {
   @page {
     size: A4 portrait;
     margin: 12mm 10mm;
+  }
+
+  /* El historial se imprime apaisado: su tabla crece hacia los lados y en
+     vertical habria que partirla. Es un documento aparte del reporte del mes,
+     asi que no conviven dos orientaciones en una misma impresion. */
+  @page hoja-horizontal {
+    size: A4 landscape;
+    margin: 10mm 10mm;
+  }
+
+  .report--landscape .hist {
+    page: hoja-horizontal;
+  }
+
+  .report--landscape .hist__charts {
+    break-inside: avoid;
   }
 
   /* El marco de la aplicacion desaparece: la hoja es el documento y nada mas. */
