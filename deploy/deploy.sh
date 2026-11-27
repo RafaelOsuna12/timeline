@@ -38,6 +38,23 @@ sudo -u "$APP_USER" bash -lc "cd '$APP_DIR/server' && npm ci --omit=dev"
 log "Compilando el frontend"
 sudo -u "$APP_USER" bash -lc "cd '$APP_DIR/web' && npm ci && npm run build"
 
+# El respaldo diario se programa aqui ademas de en install.sh: las
+# instalaciones hechas antes de paqueteria no lo tienen, y ahora hay datos
+# capturados a mano que ningun Excel puede reconstruir.
+CRON_FILE=/etc/cron.d/estadisticas-backup
+if [[ ! -f "$CRON_FILE" ]]; then
+  BACKUP_DIR="${BACKUP_DIR:-/var/backups/estadisticas}"
+  log "Programando el respaldo diario en ${BACKUP_DIR}"
+  mkdir -p "$BACKUP_DIR"
+  {
+    echo "# Respaldo de la base y de los archivos cargados. Generado por deploy.sh."
+    echo "SHELL=/bin/bash"
+    echo "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    echo "17 3 * * * root ${APP_DIR}/deploy/backup.sh ${BACKUP_DIR} >/dev/null 2>&1"
+  } > "$CRON_FILE"
+  chmod 644 "$CRON_FILE"
+fi
+
 log "Reiniciando el servicio"
 systemctl restart estadisticas
 sleep 3

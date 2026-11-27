@@ -1529,6 +1529,123 @@ table.data td.trunc {
   display: none;
 }
 
+
+/* ------------------------------ Paqueteria ------------------------------ */
+
+/* El formulario de guia es el unico del sitio con muchos campos. Van en
+   rejilla para que quepa en una pantalla sin desplazarse: capturar un paquete
+   tiene que costar menos que abrir el Excel que viene a sustituir. */
+.pkg-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px 14px;
+  align-items: end;
+}
+
+.pkg-form__wide {
+  grid-column: span 2;
+}
+
+.pkg-form__full {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 620px) {
+  .pkg-form {
+    grid-template-columns: 1fr;
+  }
+
+  .pkg-form__wide {
+    grid-column: auto;
+  }
+}
+
+.pkg-form textarea.control {
+  resize: vertical;
+  min-height: 56px;
+  line-height: 1.45;
+}
+
+/* Una guia pasada de fecha se marca con palabra y color, no solo con color:
+   en impresion y en pantallas sin color el rojo no sobrevive. */
+.is-late {
+  color: var(--status-serious-ink);
+  font-weight: 560;
+}
+
+.flag-late {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  color: var(--status-serious-ink);
+  border: 1px solid color-mix(in srgb, var(--status-serious) 40%, transparent);
+  border-radius: 4px;
+  padding: 1px 5px;
+  white-space: nowrap;
+}
+
+.pkg-text {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.55;
+  max-width: 68ch;
+}
+
+.pkg-text__h {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin: 16px 0 6px;
+}
+
+/* Bitacora: una columna de tiempo y una de hecho. El hilo vertical ayuda a
+   leerla como una secuencia y no como una lista suelta. */
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.timeline li {
+  position: relative;
+  padding: 0 0 14px 16px;
+  border-left: 1px solid var(--border);
+}
+
+.timeline li:last-child {
+  padding-bottom: 0;
+  border-left-color: transparent;
+}
+
+.timeline li::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border-strong, var(--border));
+}
+
+.timeline li:first-child::before {
+  background: var(--series-1);
+}
+
+.timeline__when {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline__what {
+  line-height: 1.45;
+}
+
+
+
 @media print {
   .sidebar,
   .filterbar,

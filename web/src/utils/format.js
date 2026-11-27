@@ -54,6 +54,23 @@ export function periodLabel(periodKey) {
   return `${name.charAt(0).toUpperCase()}${name.slice(1)} ${y}`;
 }
 
+/**
+ * Fecha suelta (YYYY-MM-DD) sin hora.
+ *
+ * No construye un Date a proposito: `new Date('2026-11-26')` se interpreta
+ * como medianoche UTC, y en un navegador de Mexico eso se muestra como el 25.
+ * Para una fecha de llegada de paqueteria, equivocarse un dia es equivocarse
+ * en lo unico que importa.
+ */
+export function dayLabel(iso) {
+  if (!iso) return '';
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso));
+  if (!m) return String(iso);
+  const [, y, mes, d] = m;
+  const nombre = MONTHS[Number(mes) - 1];
+  return nombre ? `${Number(d)} de ${nombre} de ${y}` : String(iso);
+}
+
 export function dateLabel(iso) {
   if (!iso) return '';
   const dt = new Date(iso);

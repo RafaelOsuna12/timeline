@@ -57,6 +57,12 @@ nginx, y para actualizarse subiendo el archivo desde el propio navegador.
   modo arma el **historial por persona**: varios meses de un promotor o
   supervisor en una hoja horizontal, con meta, venta, cumplimiento, faltante,
   promedio mensual y tendencia.
+- **Paquetería** — las guías en camino hacia supervisores, mandos medios y
+  oficinas de HONOR, con número de guía, paquetería, forma de entrega, origen
+  y destino, llegada aproximada y qué va dentro. Trae agenda de llegadas,
+  historial y bitácora de cada cambio. Es la única sección donde se captura
+  información en vez de consultarla: no sale de ningún Excel, así que el
+  instalador deja programado el respaldo diario.
 
 **Operación**
 
@@ -75,6 +81,7 @@ nginx, y para actualizarse subiendo el archivo desde el propio navegador.
 Cómo se calcula cada número: [`docs/METRICAS.md`](docs/METRICAS.md).
 Qué se lee de cada hoja del Excel de ventas: [`docs/ESTRUCTURA_EXCEL.md`](docs/ESTRUCTURA_EXCEL.md).
 Qué se lee del archivo de plantilla: [`docs/ESTRUCTURA_HC.md`](docs/ESTRUCTURA_HC.md).
+Cómo está armada la sección de paquetería: [`docs/PAQUETERIA.md`](docs/PAQUETERIA.md).
 
 ---
 
@@ -211,7 +218,7 @@ web/                        tablero (React + Vite + Recharts)
   src/pages/                una vista por pantalla
   src/components/charts/    gráficos
 deploy/                     nginx, systemd y scripts de instalación
-docs/                       estructura del Excel y definición de métricas
+docs/                       estructura de los archivos, métricas y paquetería
 ```
 
 El backend guarda cada carga en SQLite como un snapshot completo (~200

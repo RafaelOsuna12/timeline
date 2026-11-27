@@ -137,6 +137,21 @@ export const api = {
     remove: (id) => request(`/hc/${id}`, { method: 'DELETE' }),
   },
 
+  /**
+   * Paqueteria. Es la unica seccion que escribe: el resto del sitio solo lee
+   * lo que trajo el ultimo Excel.
+   */
+  pkg: {
+    catalogs: (signal) => request('/paqueteria/catalogs', { signal }),
+    list: (q, signal) => request(`/paqueteria${toQuery(q)}`, { signal }),
+    agenda: (q, signal) => request(`/paqueteria/agenda${toQuery(q)}`, { signal }),
+    get: (id, signal) => request(`/paqueteria/${id}`, { signal }),
+    create: (payload) => request('/paqueteria', { method: 'POST', body: payload }),
+    update: (id, payload) => request(`/paqueteria/${id}`, { method: 'PATCH', body: payload }),
+    setStatus: (id, status, note) => request(`/paqueteria/${id}/status`, { method: 'POST', body: { status, note } }),
+    remove: (id) => request(`/paqueteria/${id}`, { method: 'DELETE' }),
+  },
+
   uploadHistory: () => request('/uploads'),
   uploadJob: (id) => request(`/uploads/jobs/${id}`),
   deleteSnapshot: (id) => request(`/uploads/${id}`, { method: 'DELETE' }),

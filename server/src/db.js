@@ -243,6 +243,80 @@ CREATE TABLE IF NOT EXISTS audit_log (
   detail  TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_audit_at ON audit_log(at DESC);
+
+/* ------------------------------------------------------------------ */
+/*  Paqueteria                                                          */
+/*                                                                      */
+/*  A diferencia del resto del sistema, esto NO se deriva de un Excel:  */
+/*  se captura a mano y cambia de estado con el tiempo. Por eso vive    */
+/*  fuera de la familia de snapshots, sin snapshot_id y sin periodo.    */
+/*  Es tambien el unico dato del sitio que no se puede regenerar desde  */
+/*  un archivo, de ahi la bitacora y el borrado logico.                 */
+/* ------------------------------------------------------------------ */
+
+CREATE TABLE IF NOT EXISTS pkg_carriers (
+  code      TEXT PRIMARY KEY,
+  name      TEXT NOT NULL,
+  track_url TEXT,
+  sort      INTEGER NOT NULL DEFAULT 100,
+  active    INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS pkg_offices (
+  code    TEXT PRIMARY KEY,
+  name    TEXT NOT NULL,
+  city    TEXT,
+  state   TEXT,
+  address TEXT,
+  sort    INTEGER NOT NULL DEFAULT 100,
+  active  INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS pkg_packages (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  tracking         TEXT NOT NULL,
+  tracking_key     TEXT NOT NULL,
+  carrier_code     TEXT NOT NULL,
+  carrier_other    TEXT,
+  delivery_mode    TEXT NOT NULL,
+  recipient_kind   TEXT NOT NULL,
+  recipient_key    TEXT,
+  recipient_name   TEXT NOT NULL,
+  recipient_role   TEXT,
+  recipient_region TEXT,
+  origin_city      TEXT,
+  origin_state     TEXT,
+  dest_city        TEXT,
+  dest_state       TEXT,
+  dest_place       TEXT,
+  shipped_date     TEXT,
+  eta_date         TEXT,
+  status           TEXT NOT NULL DEFAULT 'EN_TRANSITO',
+  contents         TEXT,
+  notes            TEXT,
+  delivered_at     TEXT,
+  created_by       TEXT,
+  created_at       TEXT NOT NULL,
+  updated_by       TEXT,
+  updated_at       TEXT NOT NULL,
+  deleted_at       TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_pkg_eta ON pkg_packages(status, eta_date);
+CREATE INDEX IF NOT EXISTS idx_pkg_recipient ON pkg_packages(recipient_key);
+CREATE INDEX IF NOT EXISTS idx_pkg_tracking ON pkg_packages(tracking_key);
+
+/* La bitacora es la fuente de las notificaciones: responde "que cambio
+   desde tal momento" sin tener que comparar dos estados completos. */
+CREATE TABLE IF NOT EXISTS pkg_events (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  package_id INTEGER NOT NULL REFERENCES pkg_packages(id) ON DELETE CASCADE,
+  at         TEXT NOT NULL,
+  actor      TEXT,
+  kind       TEXT NOT NULL,
+  detail     TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_pkg_events_pkg ON pkg_events(package_id, at);
+CREATE INDEX IF NOT EXISTS idx_pkg_events_at ON pkg_events(at DESC);
 `);
 
 /* ------------------------------------------------------------------ */
@@ -271,6 +345,50 @@ addColumnIfMissing('hc_stores', 'active', 'INTEGER NOT NULL DEFAULT 1');
 // una tienda de apoyo donde el promotor tambien puede vender.
 addColumnIfMissing('hc_stores', 'floor', 'TEXT');
 addColumnIfMissing('hc_people', 'support_count', 'INTEGER NOT NULL DEFAULT 0');
+
+/* ------------------------------------------------------------------ */
+/*  Catalogos iniciales de paqueteria                                   */
+/*                                                                      */
+/*  Se siembran una sola vez; despues se administran desde el sitio y   */
+/*  un reinicio no pisa lo que el usuario haya cambiado.                */
+/*                                                                      */
+/*  `track_url` es la pagina publica de rastreo de cada empresa. Se     */
+/*  guarda sin el numero de guia a proposito: las ligas con el numero   */
+/*  dentro cambian sin aviso y una liga rota es peor que ninguna, asi   */
+/*  que el sitio abre la pagina y deja la guia en el portapapeles.      */
+/* ------------------------------------------------------------------ */
+
+const PAQUETERIAS = [
+  ['DHL', 'DHL', 'https://www.dhl.com/mx-es/home/rastreo.html', 10],
+  ['ESTAFETA', 'Estafeta', 'https://www.estafeta.com/herramientas/rastreo', 20],
+  ['FEDEX', 'FedEx', 'https://www.fedex.com/es-mx/tracking.html', 30],
+  ['UPS', 'UPS', 'https://www.ups.com/track?loc=es_MX', 40],
+  ['PAQUETEXPRESS', 'Paquetexpress', 'https://www.paquetexpress.com.mx/', 50],
+  ['REDPACK', 'Redpack', 'https://www.redpack.com.mx/', 60],
+  ['CASTORES', 'Castores', 'https://www.castores.com.mx/', 70],
+  ['TRESGUERRAS', 'Tres Guerras', 'https://www.tresguerras.com.mx/', 80],
+  ['CORREOSMX', 'Correos de Mexico', 'https://www.correosdemexico.gob.mx/', 90],
+  ['NOVENTAYNUEVE', '99minutos', 'https://99minutos.com/', 100],
+  ['JTEXPRESS', 'J&T Express', 'https://www.jtexpress.mx/', 110],
+  ['AMPM', 'AMPM', 'https://www.ampm.mx/', 120],
+  ['OTRA', 'Otra (se escribe el nombre)', null, 999],
+];
+
+const sembrarCatalogo = db.transaction(() => {
+  const hay = db.prepare('SELECT COUNT(*) AS n FROM pkg_carriers').get().n;
+  if (!hay) {
+    const ins = db.prepare('INSERT INTO pkg_carriers (code, name, track_url, sort) VALUES (?,?,?,?)');
+    for (const fila of PAQUETERIAS) ins.run(...fila);
+    console.log(`[db] catalogo de paqueterias sembrado (${PAQUETERIAS.length})`);
+  }
+  const oficinas = db.prepare('SELECT COUNT(*) AS n FROM pkg_offices').get().n;
+  if (!oficinas) {
+    db.prepare('INSERT INTO pkg_offices (code, name, city, state, sort) VALUES (?,?,?,?,?)')
+      .run('TIJUANA', 'Oficina HONOR Tijuana', 'TIJUANA', 'BAJA CALIFORNIA', 10);
+    console.log('[db] oficina HONOR Tijuana sembrada');
+  }
+});
+sembrarCatalogo();
 
 export function audit(actor, action, detail) {
   db.prepare('INSERT INTO audit_log (at, actor, action, detail) VALUES (?,?,?,?)').run(

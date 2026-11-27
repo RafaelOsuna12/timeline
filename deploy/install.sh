@@ -206,6 +206,24 @@ ufw allow OpenSSH >/dev/null 2>&1 || true
 ufw allow 'Nginx Full' >/dev/null 2>&1 || true
 ufw --force enable >/dev/null 2>&1 || true
 
+# ---------------------------------------------------------------------------
+# Respaldo diario.
+#
+# Antes de paqueteria todo el contenido se podia reconstruir volviendo a subir
+# los Excel. Las guias se capturan a mano: si se pierden, no se recuperan. Por
+# eso el respaldo deja de ser opcional y queda programado aqui.
+# ---------------------------------------------------------------------------
+log "Programando el respaldo diario"
+BACKUP_DIR="${BACKUP_DIR:-/var/backups/estadisticas}"
+mkdir -p "$BACKUP_DIR"
+cat > /etc/cron.d/estadisticas-backup <<CRON
+# Respaldo de la base y de los archivos cargados. Generado por install.sh.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+17 3 * * * root ${APP_DIR}/deploy/backup.sh ${BACKUP_DIR} >/dev/null 2>&1
+CRON
+chmod 644 /etc/cron.d/estadisticas-backup
+
 cat <<FIN
 
 --------------------------------------------------------------------------
@@ -213,6 +231,7 @@ Instalacion completada.
 
   Servicio:  systemctl status estadisticas
   Registros: journalctl -u estadisticas -f
+  Respaldo:  diario a las 3:17 en ${BACKUP_DIR}
   Datos:     ${DATA_DIR}
   Puerto:    127.0.0.1:${APP_PORT} (solo local; nginx lo publica)
 FIN

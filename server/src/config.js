@@ -58,6 +58,10 @@ export const config = {
     displayName: process.env.ADMIN_NAME || 'Administrador',
   },
   keepSourceFiles: bool(process.env.KEEP_SOURCE_FILES, true),
+  // Zona horaria con la que se decide que dia es "hoy". Importa para
+  // paqueteria: con UTC, a las 6 de la tarde en Mexico ya es el dia
+  // siguiente y un paquete aparece retrasado un dia antes de tiempo.
+  timezone: process.env.TIMEZONE || 'America/Mexico_City',
 };
 
 export default config;

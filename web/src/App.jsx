@@ -14,6 +14,8 @@ import Attendance from './pages/Attendance.jsx';
 import Comparison from './pages/Comparison.jsx';
 import Reports from './pages/Reports.jsx';
 import Personnel from './pages/Personnel.jsx';
+import Packages from './pages/Packages.jsx';
+import PackageDetail from './pages/PackageDetail.jsx';
 import PersonDetail from './pages/PersonDetail.jsx';
 import Upload from './pages/Upload.jsx';
 import Admin from './pages/Admin.jsx';
@@ -52,6 +54,8 @@ function Gate() {
         <Route path="/reportes" element={<Reports />} />
         <Route path="/personal" element={<Personnel />} />
         <Route path="/personal/:key" element={<PersonDetail />} />
+        <Route path="/paqueteria" element={<Packages />} />
+        <Route path="/paqueteria/:id" element={<PackageDetail />} />
         <Route path="/cargar" element={<RoleRoute roles={['admin', 'editor']}><Upload /></RoleRoute>} />
         <Route path="/administracion" element={<RoleRoute roles={['admin']}><Admin /></RoleRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
