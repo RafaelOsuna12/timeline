@@ -93,7 +93,7 @@ export default function Packages() {
   const { data: catalogs, error: catalogsError } = useQuery((signal) => api.pkg.catalogs(signal), [reloadKey]);
 
   const scope = tab === 'historial' ? 'cerradas' : 'abiertas';
-  const { data, error, loading } = useQuery(
+  const { data, error } = useQuery(
     (signal) =>
       tab === 'agenda'
         ? api.pkg.agenda(filters, signal)
@@ -103,6 +103,20 @@ export default function Packages() {
 
   const puedeEditar = user?.role === 'admin' || user?.role === 'editor';
   const recargar = () => setReloadKey((k) => k + 1);
+
+  /**
+   * `useQuery` conserva la respuesta anterior mientras llega la nueva, para
+   * que la pantalla no parpadee. Pero las dos consultas de esta seccion
+   * devuelven formas distintas —la agenda trae `groups` y las listas traen
+   * `items`—, asi que justo despues de cambiar de pestaña la respuesta en
+   * memoria todavia es la de la pestaña anterior. Por eso cada rama se dibuja
+   * solo cuando el payload es el suyo, y no solo cuando la pestaña coincide:
+   * leer `data.items` sobre una respuesta de agenda rompia la vista entera.
+   */
+  const esAgenda = tab === 'agenda';
+  const grupos = esAgenda ? data?.groups : null;
+  const items = esAgenda ? null : data?.items;
+  const esperando = !grupos && !items;
 
   return (
     <AppShell
@@ -157,19 +171,19 @@ export default function Packages() {
       </div>
 
       <ErrorBox error={error} />
-      {loading && !data && <Spinner label="Cargando guias…" />}
+      {esperando && !error && <Spinner label="Cargando guias…" />}
 
-      {data && tab === 'agenda' && (
-        <Agenda groups={data.groups} puedeEditar={puedeEditar} onChanged={recargar} onEdit={setEditing} />
+      {grupos && (
+        <Agenda groups={grupos} puedeEditar={puedeEditar} onChanged={recargar} onEdit={setEditing} />
       )}
-      {data && tab !== 'agenda' && (
+      {items && (
         <Card
           flush
           title={tab === 'historial' ? 'Guias cerradas' : 'Guias pendientes'}
-          hint={`${data.items.length} ${data.items.length === 1 ? 'guia' : 'guias'}`}
+          hint={`${items.length} ${items.length === 1 ? 'guia' : 'guias'}`}
         >
           <PackageTable
-            rows={data.items}
+            rows={items}
             cerradas={tab === 'historial'}
             puedeEditar={puedeEditar}
             onChanged={recargar}
