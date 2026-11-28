@@ -14,6 +14,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { api, downloadCsv, uploadFile } from '../api.js';
 import { useAuth, useQuery } from '../app/context.jsx';
 import AppShell from '../components/AppShell.jsx';
+import { FilterPanel } from '../components/FilterPanel.jsx';
 import { Card, DataTable, Empty, ErrorBox, Kpi, Spinner, StatusPill } from '../components/ui.jsx';
 import { dateLabel, n, pct } from '../utils/format.js';
 
@@ -184,7 +185,8 @@ function PersonnelFilters({ catalog, filters, onChange }) {
 
   return (
     <div className="no-print">
-      <div className="filterbar">
+      <FilterPanel active={activos.length}>
+        <div className="filterbar">
         <Select
           label="Region"
           value={filters.region}
@@ -218,7 +220,8 @@ function PersonnelFilters({ catalog, filters, onChange }) {
             onBlur={(e) => onChange('search', e.currentTarget.value.trim())}
           />
         </label>
-      </div>
+        </div>
+      </FilterPanel>
 
       {activos.length > 0 && (
         <div className="chip-row" style={{ paddingBottom: 12 }}>

@@ -487,6 +487,12 @@ textarea {
 
 /* ------------------------------ filtros ------------------------------ */
 
+/* El boton de plegar solo existe en telefono; aqui los filtros se ven
+   siempre, igual que antes. */
+.filterpanel__toggle {
+  display: none;
+}
+
 .filterbar {
   display: flex;
   flex-wrap: wrap;
@@ -1231,11 +1237,78 @@ table.data td.trunc {
     padding-right: 14px;
   }
 
+  /*
+   * El encabezado deja de ir pegado.
+   *
+   * Lleva titulo, subtitulo, acciones y los seis filtros; fijo en una
+   * pantalla de telefono se quedaba ocupando tres cuartas partes y no dejaba
+   * navegar. Quien si queda fijo es la barra negra de arriba, que es una
+   * franja y ya dice en que pantalla estas.
+   */
+  .topbar {
+    position: static;
+    backdrop-filter: none;
+    background: transparent;
+    padding-bottom: 12px;
+  }
+
   /* El titulo de la pantalla ya aparece en la barra de arriba. */
   .topbar__head {
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
+  }
+
+  /*
+   * La cabecera de tarjeta se parte en dos renglones en vez de apretar los
+   * botones contra el titulo: asi "Grafico / Tabla" queda uno al lado del
+   * otro y no uno encima del otro.
+   */
+  .card__head {
+    flex-wrap: wrap;
+  }
+
+  .card__head > .row {
+    flex: 1 0 100%;
+  }
+
+  /* Filtros plegados detras de un boton. */
+  .filterpanel__toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 4px 0 2px;
+    padding: 8px 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    background: var(--surface-1);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 560;
+    cursor: pointer;
+  }
+
+  .filterpanel__count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--series-1);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .filterpanel__body {
+    display: none;
+  }
+
+  .filterpanel.is-open .filterpanel__body {
+    display: block;
   }
 
   /* Un filtro por renglon: dos no caben y se partian a la mitad. */

@@ -15,6 +15,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, downloadCsv } from '../api.js';
 import { useAuth, useQuery } from '../app/context.jsx';
 import AppShell from '../components/AppShell.jsx';
+import { FilterPanel } from '../components/FilterPanel.jsx';
 import { Card, DataTable, Empty, ErrorBox, Kpi, Spinner } from '../components/ui.jsx';
 import { dayLabel } from '../utils/format.js';
 
@@ -263,7 +264,8 @@ function Filters({ catalogs, filters, onChange }) {
 
   return (
     <div className="no-print">
-      <div className="filterbar">
+      <FilterPanel active={activos.length}>
+        <div className="filterbar">
         <Select
           label="Region"
           value={filters.region}
@@ -318,7 +320,8 @@ function Filters({ catalogs, filters, onChange }) {
             onBlur={(e) => onChange('search', e.currentTarget.value.trim())}
           />
         </label>
-      </div>
+        </div>
+      </FilterPanel>
 
       {activos.length > 0 && (
         <div className="chip-row" style={{ paddingBottom: 12 }}>

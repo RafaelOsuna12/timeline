@@ -6,6 +6,7 @@
  */
 import { useMemo } from 'react';
 import { useData } from '../app/context.jsx';
+import { FilterPanel } from './FilterPanel.jsx';
 import { periodLabel } from '../utils/format.js';
 
 function Select({ label, value, onChange, options, allLabel }) {
@@ -86,7 +87,8 @@ export function FilterBar({ showDaySlider = true }) {
 
   return (
     <div className="no-print">
-      <div className="filterbar">
+      <FilterPanel active={activeChips.length}>
+        <div className="filterbar">
         {periods.length > 1 && (
           <label className="field">
             <span className="field__label">Periodo</span>
@@ -184,8 +186,9 @@ export function FilterBar({ showDaySlider = true }) {
               style={{ padding: '6px 0', minWidth: 170 }}
             />
           </label>
-        )}
-      </div>
+          )}
+        </div>
+      </FilterPanel>
 
       {activeChips.length > 0 && (
         <div className="chip-row" style={{ paddingBottom: 12 }}>
