@@ -12,7 +12,15 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { BarTooltip, LineTooltip, Legend, axisProps, gridProps, truncateTick } from './primitives.jsx';
+import {
+  BarTooltip,
+  LineTooltip,
+  Legend,
+  axisProps,
+  gridProps,
+  truncateTick,
+  useNarrow,
+} from './primitives.jsx';
 import { d1, n, pct, sequentialStep } from '../../utils/format.js';
 
 /**
@@ -39,7 +47,7 @@ export function MonthlyTargetBars({ months, height = 200 }) {
       <ResponsiveContainer width="100%" height={height}>
         <BarChart data={data} margin={{ top: 10, right: 8, bottom: 4, left: 4 }} barGap={2}>
           <CartesianGrid {...gridProps} />
-          <XAxis dataKey="label" {...axisProps} interval={0} />
+          <XAxis dataKey="label" {...axisProps} interval="preserveStartEnd" minTickGap={8} />
           <YAxis {...axisProps} width={44} tickFormatter={(v) => n(v)} />
           <Bar dataKey="meta" name="Meta del mes" fill="var(--axis)" radius={[4, 4, 0, 0]} isAnimationActive={false} />
           <Bar dataKey="venta" name="Piezas vendidas" fill="var(--series-1)" radius={[4, 4, 0, 0]} isAnimationActive={false}>
@@ -72,7 +80,7 @@ export function MonthlyAchBars({ months, height = 200 }) {
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 14, right: 8, bottom: 4, left: 4 }}>
         <CartesianGrid {...gridProps} />
-        <XAxis dataKey="label" {...axisProps} interval={0} />
+        <XAxis dataKey="label" {...axisProps} interval="preserveStartEnd" minTickGap={8} />
         <YAxis {...axisProps} width={44} domain={[0, max]} tickFormatter={(v) => pct(v, 0)} />
         <ReferenceLine
           y={1}
@@ -139,7 +147,9 @@ export function AdoptionCurve({ models, days, cutoffDay, colorOf, height = 280 }
       <ResponsiveContainer width="100%" height={height}>
         <ComposedChart data={data} margin={{ top: 8, right: 96, bottom: 4, left: 4 }}>
           <CartesianGrid {...gridProps} />
-          <XAxis dataKey="day" {...axisProps} interval={days > 20 ? 2 : 0} />
+          {/* `minTickGap` deja que Recharts quite marcas cuando no caben: en
+              monitor salen todos los dias y en telefono solo los que entran. */}
+          <XAxis dataKey="day" {...axisProps} interval="preserveStartEnd" minTickGap={14} />
           <YAxis {...axisProps} width={52} tickFormatter={(v) => n(v)} />
           {models.map((m) => (
             <Line
@@ -193,7 +203,7 @@ export function AdvanceCurve({ daily, target, cutoffDay, height = 300 }) {
       <ResponsiveContainer width="100%" height={height}>
         <ComposedChart data={daily} margin={{ top: 8, right: 16, bottom: 4, left: 4 }}>
           <CartesianGrid {...gridProps} />
-          <XAxis dataKey="day" {...axisProps} interval={daily.length > 20 ? 2 : 0} />
+          <XAxis dataKey="day" {...axisProps} interval="preserveStartEnd" minTickGap={14} />
           <YAxis {...axisProps} width={52} tickFormatter={(v) => n(v)} />
           {target > 0 && (
             <ReferenceLine
@@ -268,7 +278,7 @@ export function DailyBars({ daily, height = 260, showAverage = true }) {
       <ResponsiveContainer width="100%" height={height}>
         <ComposedChart data={data} margin={{ top: 8, right: 12, bottom: 4, left: 4 }}>
           <CartesianGrid {...gridProps} />
-          <XAxis dataKey="day" {...axisProps} interval={data.length > 20 ? 2 : 0} />
+          <XAxis dataKey="day" {...axisProps} interval="preserveStartEnd" minTickGap={14} />
           <YAxis {...axisProps} width={44} tickFormatter={(v) => n(v)} />
           <Bar dataKey="so" name="Sell-out del dia" radius={[4, 4, 0, 0]} isAnimationActive={false} maxBarSize={22}>
             {data.map((d) => (
@@ -305,12 +315,21 @@ export function DailyBars({ daily, height = 260, showAverage = true }) {
  */
 export function RankingBars({ data, dataKey = 'value', labelKey = 'name', height, format = n, reference, referenceLabel }) {
   const chartHeight = height || Math.max(150, data.length * 34 + 36);
+  // En telefono el hueco de los nombres se reduce: con 170px fijos las barras
+  // se quedaban sin espacio y el grafico dejaba de decir nada.
+  const estrecho = useNarrow();
   return (
     <ResponsiveContainer width="100%" height={chartHeight}>
-      <BarChart data={data} layout="vertical" margin={{ top: 4, right: 46, bottom: 4, left: 4 }}>
+      <BarChart data={data} layout="vertical" margin={{ top: 4, right: estrecho ? 34 : 46, bottom: 4, left: 4 }}>
         <CartesianGrid {...gridProps} horizontal={false} vertical />
         <XAxis type="number" {...axisProps} tickFormatter={format} />
-        <YAxis type="category" dataKey={labelKey} {...axisProps} width={170} tickFormatter={(v) => truncateTick(v)} />
+        <YAxis
+          type="category"
+          dataKey={labelKey}
+          {...axisProps}
+          width={estrecho ? 96 : 170}
+          tickFormatter={(v) => truncateTick(v, estrecho ? 12 : 24)}
+        />
         {reference !== undefined && (
           <ReferenceLine
             x={reference}
@@ -344,12 +363,19 @@ export function WeekdayProfile({ data, height = 190 }) {
 /** Comparativo de dos periodos de carga (avance entre snapshots). */
 export function DeltaBars({ data, height, format = n }) {
   const chartHeight = height || Math.max(150, data.length * 34 + 36);
+  const estrecho = useNarrow();
   return (
     <ResponsiveContainer width="100%" height={chartHeight}>
-      <BarChart data={data} layout="vertical" margin={{ top: 4, right: 30, bottom: 4, left: 4 }}>
+      <BarChart data={data} layout="vertical" margin={{ top: 4, right: estrecho ? 24 : 30, bottom: 4, left: 4 }}>
         <CartesianGrid {...gridProps} horizontal={false} vertical />
         <XAxis type="number" {...axisProps} tickFormatter={format} />
-        <YAxis type="category" dataKey="name" {...axisProps} width={180} tickFormatter={(v) => truncateTick(v)} />
+        <YAxis
+          type="category"
+          dataKey="name"
+          {...axisProps}
+          width={estrecho ? 96 : 180}
+          tickFormatter={(v) => truncateTick(v, estrecho ? 12 : 24)}
+        />
         <ReferenceLine x={0} stroke="var(--axis)" strokeWidth={1} />
         <Bar dataKey="delta" name="Avance" radius={[0, 4, 4, 0]} isAnimationActive={false} maxBarSize={18}>
           {data.map((row) => (
@@ -474,12 +500,19 @@ export function HeatLegend({ max }) {
 /** Barra de progreso comparativa usada en las listas de mezcla de modelos. */
 export function ShareBars({ data, height, format = n }) {
   const chartHeight = height || Math.max(150, data.length * 34 + 34);
+  const estrecho = useNarrow();
   return (
     <ResponsiveContainer width="100%" height={chartHeight}>
-      <BarChart data={data} layout="vertical" margin={{ top: 4, right: 52, bottom: 4, left: 4 }}>
+      <BarChart data={data} layout="vertical" margin={{ top: 4, right: estrecho ? 38 : 52, bottom: 4, left: 4 }}>
         <CartesianGrid {...gridProps} horizontal={false} vertical />
         <XAxis type="number" {...axisProps} tickFormatter={format} />
-        <YAxis type="category" dataKey="model" {...axisProps} width={150} tickFormatter={(v) => truncateTick(v, 20)} />
+        <YAxis
+          type="category"
+          dataKey="model"
+          {...axisProps}
+          width={estrecho ? 92 : 150}
+          tickFormatter={(v) => truncateTick(v, estrecho ? 11 : 20)}
+        />
         <Bar dataKey="qty" name="Piezas" fill="var(--series-1)" radius={[0, 4, 4, 0]} isAnimationActive={false} maxBarSize={20} />
         <BarTooltip
           format={(v, row) => `${n(v)} pzs${row?.payload?.share ? ` · ${pct(row.payload.share)}` : ''}`}

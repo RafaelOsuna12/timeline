@@ -1,5 +1,6 @@
 /** Marco de la aplicacion: navegacion lateral, encabezado y area de contenido. */
-import { NavLink } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth, useData } from '../app/context.jsx';
 import { Brand } from './Brand.jsx';
 import { dateLabel, periodLabel } from '../utils/format.js';
@@ -19,6 +20,8 @@ const ICONS = {
   stores: <Icon path={<><path d="M3 9l1.5-5h15L21 9M3 9h18M3 9v11h18V9M9 20v-6h6v6" /></>} />,
   attendance: <Icon path={<><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4M9 15l2 2 4-4" /></>} />,
   comparison: <Icon path={<><path d="M12 3v18M7 8l-4 4 4 4M17 8l4 4-4 4" /></>} />,
+  menu: <Icon path={<><path d="M3 6h18M3 12h18M3 18h18" /></>} />,
+  close: <Icon path={<><path d="M6 6l12 12M18 6L6 18" /></>} />,
   parcel: <Icon path={<><path d="M21 8v8a2 2 0 0 1-1 1.73l-7 4a2 2 0 0 1-2 0l-7-4A2 2 0 0 1 3 16V8a2 2 0 0 1 1-1.73l7-4a2 2 0 0 1 2 0l7 4A2 2 0 0 1 21 8z" /><path d="M3.3 7L12 12l8.7-5M12 22V12" /></>} />,
   people: <Icon path={<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></>} />,
   report: <Icon path={<><path d="M6 9V3h12v6M6 18h12v3H6zM6 14h12a2 2 0 0 0 2-2v-1a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v1a2 2 0 0 0 2 2z" /></>} />,
@@ -58,10 +61,50 @@ const NAV = [
 export function AppShell({ title, subtitle, actions, filterBar, showSnapshot = true, children }) {
   const { user, logout } = useAuth();
   const { activeSnapshot } = useData();
+  const { pathname } = useLocation();
+  const [menu, setMenu] = useState(false);
+
+  // El cajon se cierra al navegar: en un telefono, quedarse abierto encima de
+  // la pantalla recien abierta obliga a un toque de mas cada vez.
+  useEffect(() => setMenu(false), [pathname]);
+
+  // Mientras esta abierto, la pagina de atras no se desplaza y Escape cierra.
+  useEffect(() => {
+    if (!menu) return undefined;
+    const antes = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const alTeclear = (e) => {
+      if (e.key === 'Escape') setMenu(false);
+    };
+    window.addEventListener('keydown', alTeclear);
+    return () => {
+      document.body.style.overflow = antes;
+      window.removeEventListener('keydown', alTeclear);
+    };
+  }, [menu]);
 
   return (
-    <div className="shell">
-      <aside className="sidebar no-print">
+    <div className={`shell${menu ? ' shell--menu' : ''}`}>
+      {/* Barra que solo existe en telefono: el menu completo no cabe en
+          pantalla, asi que vive en un cajon detras de este boton. */}
+      <div className="mobilebar no-print">
+        <button
+          type="button"
+          className="mobilebar__btn"
+          aria-label={menu ? 'Cerrar el menu' : 'Abrir el menu'}
+          aria-expanded={menu}
+          onClick={() => setMenu((v) => !v)}
+        >
+          {menu ? ICONS.close : ICONS.menu}
+        </button>
+        <Brand height={16} className="mobilebar__logo" />
+        <span className="mobilebar__page">{title}</span>
+      </div>
+
+      {/* Capa que atenua el contenido y cierra al tocar fuera del cajon. */}
+      {menu && <div className="scrim no-print" onClick={() => setMenu(false)} aria-hidden="true" />}
+
+      <aside className={`sidebar no-print${menu ? ' is-open' : ''}`}>
         <div className="sidebar__brand">
           <Brand height={19} className="sidebar__logo" />
           <p className="sidebar__title">Avance de ventas</p>
@@ -88,7 +131,7 @@ export function AppShell({ title, subtitle, actions, filterBar, showSnapshot = t
           ))}
         </nav>
         <div className="sidebar__footer">
-          <div style={{ fontWeight: 560, color: '#e8e8e4' }}>{user?.name || user?.username}</div>
+          <div className="sidebar__user">{user?.name || user?.username}</div>
           <div style={{ textTransform: 'capitalize' }}>{user?.role}</div>
           <button type="button" className="btn btn--sm btn--ghost" style={{ padding: 0, marginTop: 6 }} onClick={logout}>
             Cerrar sesion

@@ -7,12 +7,39 @@
  *   - marcas delgadas, capa de hover siempre presente;
  *   - los textos usan tinta, no el color de la serie.
  */
+import { useEffect, useState } from 'react';
 import { Tooltip } from 'recharts';
 
 export const AXIS_STYLE = {
   fontSize: 11,
   fill: 'var(--text-muted)',
 };
+
+/**
+ * Si la pantalla es de telefono.
+ *
+ * Los graficos de barras horizontales reservan un hueco fijo para los nombres
+ * del eje —170 o 180 px—, que en una pantalla de 390 se come la mitad del
+ * ancho y deja las barras sin espacio. Con esto el hueco y el recorte de los
+ * nombres se ajustan, en vez de quedarse en la medida pensada para monitor.
+ *
+ * Se escucha el cambio para que girar el telefono o cambiar de ventana vuelva
+ * a dibujar el grafico con la medida correcta.
+ */
+export function useNarrow(maxWidth = 640) {
+  const consulta = `(max-width: ${maxWidth}px)`;
+  const [estrecho, setEstrecho] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(consulta).matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(consulta);
+    const alCambiar = (e) => setEstrecho(e.matches);
+    setEstrecho(mq.matches);
+    mq.addEventListener('change', alCambiar);
+    return () => mq.removeEventListener('change', alCambiar);
+  }, [consulta]);
+  return estrecho;
+}
 
 export const gridProps = {
   stroke: 'var(--grid)',

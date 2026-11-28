@@ -184,6 +184,11 @@ textarea {
   min-height: 100%;
 }
 
+/* Barra superior de telefono. En escritorio no existe. */
+.mobilebar {
+  display: none;
+}
+
 .sidebar {
   background: var(--sidebar);
   color: var(--sidebar-ink);
@@ -263,6 +268,11 @@ textarea {
 .navlink svg {
   flex: none;
   opacity: 0.85;
+}
+
+.sidebar__user {
+  font-weight: 560;
+  color: #e8e8e4;
 }
 
 .sidebar__footer {
@@ -361,7 +371,7 @@ textarea {
 
 .kpis {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr));
   gap: 12px;
 }
 
@@ -440,16 +450,33 @@ textarea {
   gap: 14px;
 }
 
+/*
+ * Un hijo de rejilla no se encoge por debajo del ancho de su contenido a
+ * menos que se le diga: su minimo automatico es el del contenido. Sin esto,
+ * una grafica o una tabla ancha estiraba su tarjeta mas alla de la columna y
+ * arrastraba al documento entero. En un telefono de 390px la pagina medi­a
+ * 662 y habia que desplazarse a lo ancho para ver cualquier cosa.
+ */
+.grid > *,
+.kpis > * {
+  min-width: 0;
+}
+
+/*
+ * `min(380px, 100%)` en vez de `380px`: una pista de rejilla nunca baja de su
+ * minimo, asi que en una pantalla mas angosta que ese minimo la columna se
+ * salia de la pantalla. Con `min()` el minimo pasa a ser el ancho disponible.
+ */
 .grid--2 {
-  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr));
 }
 
 .grid--3 {
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
 }
 
 .grid--wide-left {
-  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  grid-template-columns: minmax(0, 2fr) minmax(min(300px, 100%), 1fr);
 }
 
 @media (max-width: 1100px) {
@@ -493,6 +520,53 @@ textarea {
   min-height: 34px;
   min-width: 120px;
   color: var(--text-primary);
+}
+
+/*
+ * Deslizador del dia.
+ *
+ * `.control` lleva `appearance: none` para que los select se vean iguales en
+ * todos los navegadores, pero eso tambien le quita al deslizador su barra y
+ * dejaba suelto el tirador: un punto azul dentro de un recuadro vacio. Aqui
+ * se le vuelve a dibujar.
+ */
+input[type='range'].control {
+  padding: 0;
+  min-height: 28px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type='range'].control::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border-strong);
+}
+
+input[type='range'].control::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border-strong);
+}
+
+input[type='range'].control::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: var(--series-1);
+  border: 2px solid var(--surface-1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+input[type='range'].control::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--series-1);
+  border: 2px solid var(--surface-1);
 }
 
 select.control {
@@ -1056,35 +1130,142 @@ table.data td.trunc {
 
 /* ------------------------------ responsive ------------------------------ */
 
+/*
+ * Telefono y tableta en vertical.
+ *
+ * Antes el menu se convertia en una tira horizontal con los trece enlaces y
+ * con los titulos de grupo y el pie ocultos: no cabia, no se veia donde
+ * estabas y no habia manera de cerrar la sesion. Ahora el menu completo vive
+ * en un cajon que entra desde la izquierda, con sus grupos y su pie intactos.
+ */
 @media (max-width: 900px) {
   .shell {
     grid-template-columns: 1fr;
   }
 
-  .sidebar {
-    position: relative;
-    height: auto;
+  .mobilebar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    padding: 10px 14px;
+    padding-top: calc(10px + env(safe-area-inset-top));
+    background: var(--sidebar);
+    color: var(--sidebar-ink);
   }
 
-  .sidebar__nav {
-    flex-direction: row;
-    overflow-x: auto;
-    padding: 8px;
+  .mobilebar__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    flex: none;
+    margin-left: -6px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
   }
 
-  .sidebar__group,
-  .sidebar__footer {
-    display: none;
+  .mobilebar__btn:active {
+    background: rgba(255, 255, 255, 0.12);
   }
 
-  .navlink {
+  .mobilebar__logo {
+    flex: none;
+  }
+
+  /* El nombre de la pantalla se recorta en vez de empujar la barra. */
+  .mobilebar__page {
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: right;
+    font-size: 12.5px;
+    font-weight: 560;
+    opacity: 0.72;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* El cajon: fuera de pantalla hasta que se abre. */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 50;
+    width: min(280px, 84vw);
+    height: 100%;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    box-shadow: none;
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .sidebar.is-open {
+    transform: translateX(0);
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.45);
+  }
+
+  .scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgba(0, 0, 0, 0.45);
+  }
+
+  /* Los enlaces se tocan con el dedo, no con el raton. */
+  .navlink {
+    padding-top: 11px;
+    padding-bottom: 11px;
   }
 
   .topbar,
   .content {
     padding-left: 14px;
     padding-right: 14px;
+  }
+
+  /* El titulo de la pantalla ya aparece en la barra de arriba. */
+  .topbar__head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  /* Un filtro por renglon: dos no caben y se partian a la mitad. */
+  .filterbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /*
+   * `!important` porque varios campos traen `flex: 1 1 190px` en linea. En
+   * fila esos 190px son el ancho base; al pasar a columna se vuelven el ALTO
+   * base, y el campo Buscar abria un hueco vacio de casi 200px en mitad de
+   * los filtros.
+   */
+  .filterbar .field {
+    flex: 0 0 auto !important;
+    min-width: 0 !important;
+    width: 100%;
+  }
+
+  .filterbar .control {
+    width: 100%;
+    min-width: 0 !important;
+  }
+}
+
+/* Sin animacion para quien la haya desactivado en su sistema. */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar {
+    transition: none;
   }
 }
 
@@ -1215,7 +1396,7 @@ table.data td.trunc {
 
 .picker-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
   gap: 14px;
 }
 
@@ -1573,7 +1754,7 @@ table.data td.trunc {
    tiene que costar menos que abrir el Excel que viene a sustituir. */
 .pkg-form {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr));
   gap: 12px 14px;
   align-items: end;
 }
